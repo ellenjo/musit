@@ -1,1 +1,4 @@
 GET       /v1/taxon                              controllers.TaxonController.searchByTerm(search: Option[String] ?= None)
+GET       /v1/taxon/scientificName/suggest       controllers.TaxonController.scientificNameSuggest(suggest: Option[String] ?= None)
+GET       /v1/taxon/scientificName/:scientificNameId  controllers.TaxonController.getScientificNameById(scientificNameId: Long)
+GET       /v1/taxon/:taxonId                     controllers.TaxonController.getTaxonById(taxonId: Long)
