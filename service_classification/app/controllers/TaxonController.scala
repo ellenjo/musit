@@ -2,7 +2,7 @@ package controllers
 
 import com.google.inject.Inject
 import models.Taxon
-import no.uio.musit.MusitResults.{MusitError, MusitSuccess}
+import no.uio.musit.MusitResults.{MusitError, MusitSuccess, MusitValidationError}
 import no.uio.musit.security.Authenticator
 import no.uio.musit.service.MusitController
 import play.api.Logger
@@ -38,6 +38,21 @@ class TaxonController @Inject() (
     }
   }
 
+  def scientificNameSuggest(suggest: Option[String]) = Action.async { implicit request =>
+    val expression = suggest.getOrElse("")
+    taxonService.searchScientNameSuggest(expression).map {
+      case MusitSuccess(sNameSuggestions) => Ok(Json.toJson(sNameSuggestions))
+      case err: MusitError =>
+        InternalServerError(Json.obj("message" -> err.message))
+    }.recover {
+
+      case NonFatal(ex) =>
+        val msg = "An error occurred when searching for taxon"
+        logger.error(msg, ex)
+        InternalServerError(Json.obj("message" -> msg))
+    }
+  }
+
   def getScientificNameById(scientificNameId: Long) = Action.async { implicit request =>
     taxonService.getScientificNameById(scientificNameId).map {
       case MusitSuccess(maybeScientificName) =>
@@ -55,23 +70,14 @@ class TaxonController @Inject() (
     }
   }
 
-  def scientificNameSuggest(suggest: Option[String]) = Action.async { implicit request =>
-    val expression = suggest.getOrElse("")
-    taxonService.searchScientNameSuggest(expression).map {
-      case MusitSuccess(sNameSuggestions) => Ok(Json.toJson(sNameSuggestions))
-      case err: MusitError =>
-        InternalServerError(Json.obj("message" -> err.message))
-    }.recover {
-      case NonFatal(ex) =>
-        val msg = "An error occurred when searching for taxon"
-        logger.error(msg, ex)
-        InternalServerError(Json.obj("message" -> msg))
-    }
-  }
-
   def getTaxonById(id: Long) = Action.async { implicit request =>
     taxonService.getTaxonById(id).map {
-      case MusitSuccess(taxon) => Ok(Json.toJson(taxon))
+      case MusitSuccess(maybetaxon) =>
+        maybetaxon.map { taxon =>
+          Ok(Json.toJson(taxon))
+        }.getOrElse(NotFound)
+      case valerr: MusitValidationError =>
+        BadRequest(Json.obj("message" -> valerr.message))
       case err: MusitError =>
         InternalServerError(Json.obj("message" -> err.message))
     }.recover {

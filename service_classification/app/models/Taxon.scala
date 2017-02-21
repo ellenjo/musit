@@ -15,7 +15,7 @@ case class Taxon(
 
 object Taxon {
   implicit val reads: Reads[Taxon] = (
-    (__ \ "Id").read[String] and
+    (__ \ "Id").readNullable[String].map(_.getOrElse("")) and
     (__ \ "taxonID").read[Int] and
     (__ \ "scientificNames").readNullable[Seq[ScientificName]] and
     (__ \ "vernacularNames").readNullable[Seq[VernacularName]] and

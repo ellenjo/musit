@@ -44,6 +44,32 @@ class TaxonService @Inject() (config: Configuration, ws: WSClient) {
       }
   }
 
+  def searchScientNameSuggest(expr: String): Future[MusitResult[Seq[String]]] = {
+    println(SearchUrlArtsbankSuggest)
+    ws.url(SearchUrlArtsbankSuggest)
+      .withHeaders(
+        HeaderNames.ACCEPT -> "application/json"
+      )
+      .withQueryString(
+        "ScientificName" -> expr
+      )
+      .get()
+      .map { res =>
+        res.status match {
+          case OK =>
+            logger.debug(s"Got response from artsBank:\n${Json.prettyPrint(res.json)}")
+            val scientificnamesSuggestions = res.json.as[Seq[String]]
+            MusitSuccess(scientificnamesSuggestions)
+
+          case BAD_REQUEST =>
+            MusitValidationError("bad request")
+
+          case _ =>
+            MusitInternalError("Something really bad")
+        }
+      }
+  }
+
   def getScientificNameById(id: Long): Future[MusitResult[Option[ScientificName]]] = {
     ws.url(s"$SearchUrlArtsbankScientificName/${id.toString}")
       .withHeaders(
@@ -72,33 +98,7 @@ class TaxonService @Inject() (config: Configuration, ws: WSClient) {
       }
   }
 
-  def searchScientNameSuggest(expr: String): Future[MusitResult[Seq[String]]] = {
-    println(SearchUrlArtsbankSuggest)
-    ws.url(SearchUrlArtsbankSuggest)
-      .withHeaders(
-        HeaderNames.ACCEPT -> "application/json"
-      )
-      .withQueryString(
-        "ScientificName" -> expr
-      )
-      .get()
-      .map { res =>
-        res.status match {
-          case OK =>
-            logger.debug(s"Got response from artsBank:\n${Json.prettyPrint(res.json)}")
-            val scientificnamesSuggestions = res.json.as[Seq[String]]
-            MusitSuccess(scientificnamesSuggestions)
-
-          case BAD_REQUEST =>
-            MusitValidationError("bad request")
-
-          case _ =>
-            MusitInternalError("Something really bad")
-        }
-      }
-  }
-
-  def getTaxonById(id: Long): Future[MusitResult[Taxon]] = {
+  def getTaxonById(id: Long): Future[MusitResult[Option[Taxon]]] = {
     ws.url(SearchUrlArtsBank + "/" + id.toString)
       .withHeaders(
         HeaderNames.ACCEPT -> "application/json"
@@ -108,14 +108,22 @@ class TaxonService @Inject() (config: Configuration, ws: WSClient) {
         res.status match {
           case OK =>
             logger.debug(s"Got response from artsBank:\n${Json.prettyPrint(res.json)}")
-            val taxons = res.json.as[Taxon]
-            MusitSuccess(taxons)
+            res.json.validate[Taxon] match {
+              case JsSuccess(taxon, _) =>
+                MusitSuccess(Option(taxon))
+
+              case err: JsError =>
+                if (res.body == "null") MusitSuccess(None)
+                else MusitValidationError("bad response from artsdatabanken")
+            }
 
           case BAD_REQUEST =>
             MusitValidationError("bad request")
 
           case _ =>
-            MusitInternalError("Something really bad")
+            logger.debug(s"unhandled ${res.status} ${res.body}")
+            //todo: parse error message
+            MusitInternalError(res.body)
         }
       }
   }
