@@ -1,23 +1,21 @@
 package controllers
 
 import com.google.inject.Inject
-import models.Taxon
 import no.uio.musit.MusitResults.{MusitError, MusitInternalError, MusitSuccess, MusitValidationError}
 import no.uio.musit.security.Authenticator
 import no.uio.musit.service.MusitController
 import play.api.Logger
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.libs.json.Json
 import play.api.mvc.{Action, Result}
 import services.TaxonService
 
-import scala.util.control.NonFatal
-import play.api.libs.concurrent.Execution.Implicits.defaultContext
-
 import scala.concurrent.Future
+import scala.util.control.NonFatal
 
 class TaxonController @Inject() (
-    val authService: Authenticator,
-    val taxonService: TaxonService
+  val authService: Authenticator,
+  val taxonService: TaxonService
 ) extends MusitController {
 
   val logger = Logger(classOf[TaxonController])
