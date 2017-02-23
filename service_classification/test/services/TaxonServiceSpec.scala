@@ -1,5 +1,6 @@
 package services
 
+import no.uio.musit.MusitResults.{MusitInternalError, MusitValidationError}
 import no.uio.musit.test.MusitSpecWithAppPerSuite
 
 class TaxonServiceSpec extends MusitSpecWithAppPerSuite {
@@ -11,7 +12,6 @@ class TaxonServiceSpec extends MusitSpecWithAppPerSuite {
 
       "return a list of suggested scientificNames" in {
         val namesRes = service.searchScientNameSuggest("alopes lagopos").futureValue
-        //println(namesRes.get)
         namesRes.isSuccess mustBe true
         val names = namesRes.get
         names.size mustBe 4
@@ -19,28 +19,47 @@ class TaxonServiceSpec extends MusitSpecWithAppPerSuite {
 
       }
 
+      "return no Content when search for suggested scientificName that doesn't exists" in {
+        val scientNamesRes = service.searchScientNameSuggest("aaaaaalopex lagopusssssssssssss").futureValue
+        scientNamesRes.isSuccess mustBe true
+        val noName = scientNamesRes.get
+        noName.isEmpty mustBe true
+      }
+
       "return the Taxon of a spesific scientificName" in {
         val scientNamesRes = service.searchByTerm("alopex lagopus").futureValue
-        //println(s" println: ${scientNamesRes.get.head}")
         scientNamesRes.isSuccess mustBe true
         val scientName = scientNamesRes.get
         scientName.size mustBe 1
         scientName.head.taxonId mustBe 83770
       }
 
+      "return no Content when search for scientificName that doesn't exists" in {
+        val scientNamesRes = service.searchByTerm("alopex lagopusssssssssssss").futureValue
+        scientNamesRes.isSuccess mustBe true
+        val noName = scientNamesRes.get
+        noName.isEmpty mustBe true
+      }
+
+
       "return the scientificName from a given scientificNameId" in {
         val idRes = service.getScientificNameById(126845).futureValue
-        //println(s" println: ${idres.get}")
         idRes.isSuccess mustBe true
         idRes.get.nonEmpty mustBe true
         idRes.get.get.scientificName mustBe "Alopex lagopus"
         idRes.get.get.taxonId mustBe 83770
         idRes.get.get.higherClassification must not be empty
       }
-      "return the 404 Not Found from a negative scientificNameId" in {
+      "return the 400 Bad Request from a negative scientificNameId" in {
         val idNegRes = service.getScientificNameById(-1).futureValue
         idNegRes.isSuccess mustBe true
         idNegRes.get.isEmpty mustBe true
+      }
+
+      "return MusitValidationError from a too long scientificNameId" in {
+        val idNegRes = service.getScientificNameById(Long.MaxValue).futureValue
+        idNegRes.isFailure mustBe true
+        idNegRes mustBe a[MusitValidationError]
       }
 
       "return taxon from a given taxonId" in {
@@ -50,10 +69,17 @@ class TaxonServiceSpec extends MusitSpecWithAppPerSuite {
         taxonIdRes.get.get.scientificNames must not be empty
       }
 
-      "return InternalServerError from a negative taxonId" in {
+      "return MusitValidationError from a too long taxonId" in {
+        val taxonNegRes = service.getTaxonById(Long.MaxValue).futureValue
+        taxonNegRes.isFailure mustBe true
+        taxonNegRes mustBe a[MusitValidationError]
+
+      }
+
+      "return 400 Bad Request from a negative taxonId" in {
         val taxonNegRes = service.getTaxonById(-1).futureValue
         taxonNegRes.isFailure mustBe true
-
+        taxonNegRes mustBe a[MusitInternalError]
       }
     }
   }

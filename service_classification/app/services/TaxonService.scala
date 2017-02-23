@@ -4,12 +4,12 @@ import com.google.inject.Inject
 import models.{ScientificName, Taxon}
 import play.api.{Configuration, Logger}
 import play.api.http.HeaderNames
-import play.api.libs.ws.WSClient
+import play.api.libs.ws.{WSClient, WSResponse}
 
 import scala.concurrent.Future
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import no.uio.musit.MusitResults.{MusitInternalError, MusitResult, MusitSuccess, MusitValidationError}
-import play.api.libs.json.{JsError, JsSuccess, Json}
+import play.api.libs.json.{JsError, JsSuccess, Json, Reads}
 import play.api.http.Status._
 import TaxonService.SearchUrlArtsBank
 import TaxonService.SearchUrlArtsbankSuggest
@@ -29,17 +29,8 @@ class TaxonService @Inject() (config: Configuration, ws: WSClient) {
       )
       .get()
       .map { res =>
-        res.status match {
-          case OK =>
-            logger.debug(s"Got response from artsBank:\n${Json.prettyPrint(res.json)}")
-            val taxons = res.json.as[Seq[Taxon]]
-            MusitSuccess(taxons)
-
-          case BAD_REQUEST =>
-            MusitValidationError("bad request")
-
-          case _ =>
-            MusitInternalError("Something really bad")
+        parseSeqResult[Taxon](res) { taxons =>
+          MusitSuccess(taxons)
         }
       }
   }
@@ -54,20 +45,7 @@ class TaxonService @Inject() (config: Configuration, ws: WSClient) {
         "ScientificName" -> expr
       )
       .get()
-      .map { res =>
-        res.status match {
-          case OK =>
-            logger.debug(s"Got response from artsBank:\n${Json.prettyPrint(res.json)}")
-            val scientificnamesSuggestions = res.json.as[Seq[String]]
-            MusitSuccess(scientificnamesSuggestions)
-
-          case BAD_REQUEST =>
-            MusitValidationError("bad request")
-
-          case _ =>
-            MusitInternalError("Something really bad")
-        }
-      }
+      .map(res => parseSeqResult[String](res)(names => MusitSuccess(names)))
   }
 
   def getScientificNameById(id: Long): Future[MusitResult[Option[ScientificName]]] = {
@@ -77,23 +55,8 @@ class TaxonService @Inject() (config: Configuration, ws: WSClient) {
       )
       .get()
       .map { res =>
-        res.status match {
-          case OK =>
-            logger.debug(s"Got response from artsBank:\n${Json.prettyPrint(res.json)}")
-            res.json.validate[ScientificName] match {
-              case JsSuccess(scientName, _) =>
-                MusitSuccess(Option(scientName))
-
-              case err: JsError =>
-                if (res.body == "null") MusitSuccess(None)
-                else MusitValidationError("bad response from artsdatabanken")
-            }
-
-          case BAD_REQUEST =>
-            MusitValidationError("bad request")
-
-          case _ =>
-            MusitInternalError("Something really bad")
+        parseOptionalResult[ScientificName](res) { scientName =>
+          MusitSuccess(Option(scientName))
         }
       }
   }
@@ -104,28 +67,43 @@ class TaxonService @Inject() (config: Configuration, ws: WSClient) {
         HeaderNames.ACCEPT -> "application/json"
       )
       .get()
-      .map { res =>
-        res.status match {
-          case OK =>
-            logger.debug(s"Got response from artsBank:\n${Json.prettyPrint(res.json)}")
-            res.json.validate[Taxon] match {
-              case JsSuccess(taxon, _) =>
-                MusitSuccess(Option(taxon))
+      .map(res => parseOptionalResult[Taxon](res)(t => MusitSuccess(Option(t))))
+  }
 
-              case err: JsError =>
-                if (res.body == "null") MusitSuccess(None)
-                else MusitValidationError("bad response from artsdatabanken")
-            }
+  def parseResult[A](res: WSResponse)(ok: WSResponse => MusitResult[A]) = {
+    res.status match {
+      case OK => ok(res)
+      case BAD_REQUEST => MusitValidationError("bad request")
+      case _ =>
+        logger.debug(s"unhandled ${res.status} ${res.body}")
+        MusitInternalError(res.body)
+    }
+  }
 
-          case BAD_REQUEST =>
-            MusitValidationError("bad request")
+  def parseSeqResult[A](res: WSResponse)(
+    success: Seq[A] => MusitResult[Seq[A]]
+  )(implicit reads: Reads[A]) = {
+    parseResult[Seq[A]](res) { okRes =>
+      logger.debug(s"Got response from artsBank:\n${Json.prettyPrint(res.json)}")
+      val parsed = okRes.json.as[Seq[A]]
+      MusitSuccess(parsed)
+    }
+  }
 
-          case _ =>
-            logger.debug(s"unhandled ${res.status} ${res.body}")
-            //todo: parse error message
-            MusitInternalError(res.body)
-        }
+  def parseOptionalResult[A](res: WSResponse)(
+    success: A => MusitResult[Option[A]]
+  )(implicit reads: Reads[A]) = {
+    parseResult[Option[A]](res) { okRes =>
+      logger.debug(s"Got response from artsBank:\n${Json.prettyPrint(res.json)}")
+      res.json.validate[A] match {
+        case JsSuccess(valid, _) =>
+          success(valid)
+
+        case err: JsError =>
+          if (res.body == "null") MusitSuccess(None)
+          else MusitValidationError("bad response from artsdatabanken")
       }
+    }
   }
 
 }
