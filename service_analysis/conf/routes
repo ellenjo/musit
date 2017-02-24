@@ -1,0 +1,9 @@
+# Routes
+# This file defines all application routes (Higher priority routes first)
+# ~~~~
+
+GET           /service/analysis/buildinfo                                controllers.Application.buildInfo
+
+# StorageNode endpoints
+# ~~~~
+GET           /v1/museum/:mid/analysis/:eventId                              controllers.AnalysisEventController.getById(mid: Int, eventId: Long)
