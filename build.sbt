@@ -40,7 +40,8 @@ lazy val root = project in file(".") settings noPublish aggregate(
   serviceActor,
   serviceGeoLocation,
   serviceClassification,
-  serviceStoragefacility
+  serviceStoragefacility,
+  serviceAnalysis
 )
 
 // ======================================================================
@@ -133,6 +134,13 @@ lazy val serviceClassification = (
     settings(routesGenerator := InjectedRoutesGenerator)
     settings(packageName in Docker := "musit_service_classification")
 ) dependsOn(musitService, musitTest % Test)
+
+lazy val serviceAnalysis = (
+  PlayProject("service_analysis")
+    settings(libraryDependencies ++= testablePlayWithPersistenceDependencies)
+    settings(routesGenerator := InjectedRoutesGenerator)
+    settings(packageName in Docker := "musit_service_analysis")
+  ) dependsOn(musitService, musitTest % Test)
 
 lazy val serviceStoragefacility = (
   PlayProject("service_storagefacility")

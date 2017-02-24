@@ -14,8 +14,8 @@ import scala.concurrent.Future
 import scala.util.control.NonFatal
 
 class TaxonController @Inject() (
-  val authService: Authenticator,
-  val taxonService: TaxonService
+    val authService: Authenticator,
+    val taxonService: TaxonService
 ) extends MusitController {
 
   val logger = Logger(classOf[TaxonController])
