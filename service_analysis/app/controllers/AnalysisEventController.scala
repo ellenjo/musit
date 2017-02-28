@@ -9,19 +9,21 @@ import play.api.libs.json.Json
 import play.api.mvc.{Action, Result}
 import services.EventService
 
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
+
 import scala.concurrent.Future
 import scala.util.control.NonFatal
 
 class AnalysisEventController @Inject() (
-  val authService: Authenticator,
-  val eventService: EventService
+    val authService: Authenticator,
+    val eventService: EventService
 ) extends MusitController {
 
   val logger = Logger(classOf[AnalysisEventController])
 
-  def getById(mid: Int, eventId: Long)= Action.async { implicit request =>
+  def getById(eventId: Long) = Action.async { implicit request =>
     validateId(eventId) { _ =>
-  eventService.getAnalysisById(eventId).map {
+      eventService.getAnalysisById(eventId).map {
         case MusitSuccess(maybeAnalysis) =>
           maybeAnalysis.map { analysis =>
             Ok(Json.toJson(analysis))

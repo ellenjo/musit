@@ -7,6 +7,8 @@ import play.api.libs.json.{Format, Json}
 case class GeneralEvent(
   id: Option[EventId],
   eventType: AnalysisEventType,
+  doneBy: Option[Seq[ActorId]],
+  //actors: Option[Seq[(Role, ActorId)]],
   eventDate: DateTime,
   registeredBy: Option[ActorId],
   registeredDate: Option[DateTime],

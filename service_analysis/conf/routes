@@ -6,4 +6,4 @@ GET           /service/analysis/buildinfo                                control
 
 # StorageNode endpoints
 # ~~~~
-GET           /v1/museum/:mid/analysis/:eventId                              controllers.AnalysisEventController.getById(mid: Int, eventId: Long)
+GET           /v1/museum/analysis/:eventId                              controllers.AnalysisEventController.getById(eventId: Long)

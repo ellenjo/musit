@@ -9,10 +9,11 @@ import play.api.libs.ws.WSClient
 
 import scala.concurrent.Future
 
-class EventService  @Inject() (config: Configuration, ws: WSClient) {
+class EventService @Inject() (config: Configuration, ws: WSClient) {
 
   val logger = Logger(classOf[EventService])
 
-  def getAnalysisById(eventId: EventId) : Future[MusitResult[Option[GeneralEvent]]] = {
+  def getAnalysisById(eventId: EventId): Future[MusitResult[Option[GeneralEvent]]] = {
     ???
+  }
 }
