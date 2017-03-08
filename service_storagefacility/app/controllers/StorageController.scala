@@ -350,7 +350,7 @@ final class StorageController @Inject() (
   ) = MusitSecureAction(mid, Write).async(parse.json) { implicit request =>
     implicit val currUsr = request.user
 
-    request.body.validate[Move[ObjectId]] match {
+    request.body.validate[Move[ObjectUUID]] match {
       case JsSuccess(cmd, _) =>
         val events = MoveObject.fromCommand(request.user.id, cmd)
         service.moveObjects(mid, cmd.destination, events).map {
@@ -380,21 +380,25 @@ final class StorageController @Inject() (
    * Endpoint for retrieving the {{{limit}}} number of past move events.
    *
    * @param mid      MuseumId
-   * @param objectId the objectId to get move history for.
+   * @param oid      the objectId to get move history for.
    * @param limit    Int indicating the number of results to return.
    * @return A JSON array with the {{{limit}}} number of move events.
    */
   def objectLocationHistory(
     mid: Int,
-    objectId: Long,
+    oid: String,
     limit: Int
   ) = MusitSecureAction(mid, Read).async { implicit request =>
-    service.objectLocationHistory(mid, objectId, Option(limit)).map {
-      case MusitSuccess(history) =>
-        Ok(Json.toJson(history))
+    ObjectUUID.fromString(oid).map { objectId =>
+      service.objectLocationHistory(mid, objectId, Option(limit)).map {
+        case MusitSuccess(history) =>
+          Ok(Json.toJson(history))
 
-      case err: MusitError =>
-        InternalServerError(Json.obj("message" -> err.message))
+        case err: MusitError =>
+          InternalServerError(Json.obj("message" -> err.message))
+      }
+    }.getOrElse {
+      Future.successful(BadRequest(Json.obj("message" -> s"$oid was not an UUID")))
     }
   }
 
@@ -407,20 +411,24 @@ final class StorageController @Inject() (
    */
   def currentObjectLocation(
     mid: Int,
-    oid: Long
+    oid: String
   ) = MusitSecureAction(mid, Read).async { implicit request =>
-    service.currentObjectLocation(mid, oid).map {
-      case MusitSuccess(optCurrLoc) =>
-        optCurrLoc.map { currLoc =>
-          Ok(Json.toJson(currLoc))
-        }.getOrElse {
-          NotFound(Json.obj("message" -> s"Could not find objectId $oid in museum $mid"))
-        }
+    ObjectUUID.fromString(oid).map { objectId =>
+      service.currentObjectLocation(mid, objectId).map {
+        case MusitSuccess(optCurrLoc) =>
+          optCurrLoc.map { currLoc =>
+            Ok(Json.toJson(currLoc))
+          }.getOrElse {
+            NotFound(Json.obj("message" -> s"Could not find objectId $oid in museum $mid"))
+          }
 
-      case err: MusitError =>
-        logger.error("An unexpected error occurred when trying to read " +
-          s" currentLocation for object $oid. Message was: ${err.message}")
-        InternalServerError(Json.obj("message" -> err.message))
+        case err: MusitError =>
+          logger.error("An unexpected error occurred when trying to read " +
+            s" currentLocation for object $oid. Message was: ${err.message}")
+          InternalServerError(Json.obj("message" -> err.message))
+      }
+    }.getOrElse {
+      Future.successful(BadRequest(Json.obj("message" -> s"$oid was not an UUID")))
     }
   }
 
@@ -433,7 +441,7 @@ final class StorageController @Inject() (
   def currentObjectLocations(
     mid: Int
   ) = MusitSecureAction(mid, Read).async(parse.json) { implicit request =>
-    request.body.validate[Seq[ObjectId]] match {
+    request.body.validate[Seq[ObjectUUID]] match {
       case JsSuccess(ids, _) =>
         service.currentObjectLocations(mid, ids).map {
           case MusitSuccess(objectsLocations) =>

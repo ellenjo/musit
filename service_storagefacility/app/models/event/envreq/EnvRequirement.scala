@@ -40,7 +40,7 @@ case class EnvRequirement(
     hypoxicAir: Option[Interval[Double]],
     cleaning: Option[String],
     light: Option[String]
-) extends MusitEvent {
+) extends MusitEvent[StorageNodeDatabaseId] {
 
   def similar(er: EnvRequirement): Boolean = {
     // Compare the basic similarities of the environment requirements

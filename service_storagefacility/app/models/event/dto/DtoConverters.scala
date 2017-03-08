@@ -31,7 +31,7 @@ import models.event.observation._
 import models.event.observation.ObservationSubEvents._
 import models.{FromToDouble, Interval, LifeCycle}
 import models.event.control.ControlSubEvents._
-import no.uio.musit.models.{ObjectId, StorageNodeDatabaseId}
+import no.uio.musit.models._
 import EventRoleActor._
 import EventRoleObject._
 import EventRolePlace._
@@ -73,16 +73,16 @@ object DtoConverters {
    * types.
    */
   // scalastyle:off parameter.number
-  private[this] def toBaseDto[T <: MusitEvent](
+  private[this] def toBaseDto[EID <: MusitId, RID, T <: MusitEvent[RID]](
     base: T,
     eventTypeId: EventTypeId,
     note: Option[String],
     maybeStr: Option[String] = None,
     maybeLong: Option[Long] = None,
     maybeDouble: Option[Double] = None,
-    relEvents: Seq[RelatedEvents] = Seq.empty,
+    relEvents: Seq[RelatedEvents[EID, RID]] = Seq.empty,
     relPlaces: Seq[PlaceRole] = Seq.empty
-  ): BaseEventDto = {
+  ): BaseEventDto[EID, RID] = {
     val affectedThing = base.affectedThing.map(id => ObjectRole(1, id))
 
     // scalastyle:off line.size.limit
@@ -114,19 +114,19 @@ object DtoConverters {
    * types. Differs from the above function in that it will initialise the
    * `releatedEvents` property with an empty collection.
    */
-  private[this] def toBaseDtoNoChildren[T <: MusitEvent](
+  private[this] def toBaseDtoNoChildren[EID <: MusitId, RID, T <: MusitEvent[RID]](
     base: T,
     eventTypeId: EventTypeId,
     note: Option[String],
     maybeStr: Option[String] = None,
     maybeLong: Option[Long] = None,
     maybeDouble: Option[Double] = None
-  ): BaseEventDto = {
-    toBaseDto[T](base, eventTypeId, note, maybeStr, maybeLong, maybeDouble)
+  ): BaseEventDto[EID, RID] = {
+    toBaseDto[EID, RID, T](base, eventTypeId, note, maybeStr, maybeLong, maybeDouble)
   }
 
   // scalastyle:off parameter.number
-  private[this] def toExtendedDto[A <: MusitEvent, B <: DtoExtension](
+  private[this] def toExtendedDto[EID <: MusitId, RID, A <: MusitEvent[RID], B <: DtoExtension](
     base: A,
     eventTypeId: EventTypeId,
     note: Option[String],
@@ -135,7 +135,7 @@ object DtoConverters {
     maybeDouble: Option[Double] = None,
     relPlaces: Seq[PlaceRole] = Seq.empty,
     ext: B
-  ): ExtendedDto = {
+  ): ExtendedDto[EID, RID] = {
     val affectedThing = base.affectedThing.map(id => ObjectRole(1, id))
 
     // scalastyle:off line.size.limit
@@ -149,7 +149,7 @@ object DtoConverters {
       relatedObjects = affectedThing.map(or => fromObjectRole(or, base.eventType.registeredEventId)).toSeq,
       relatedPlaces = relPlaces.map(pr => fromPlaceRole(pr, base.eventType.registeredEventId)),
       note = note,
-      relatedSubEvents = Seq.empty[RelatedEvents],
+      relatedSubEvents = Seq.empty[RelatedEvents[EID, RID]],
       partOf = None,
       valueLong = maybeLong,
       valueString = maybeStr,
@@ -189,7 +189,7 @@ object DtoConverters {
    */
   object CtrlConverters {
 
-    def controlToDto(ctrl: Control): BaseEventDto = {
+    def controlToDto(ctrl: Control): BaseEventDto[EventId, StorageNodeDatabaseId] = {
       val regBy = ctrl.registeredBy
       val regDate = ctrl.registeredDate
       val affectedThing = ctrl.affectedThing.map(id => ObjectRole(1, id))
@@ -198,7 +198,7 @@ object DtoConverters {
           relation = EventRelations.PartsOfRelation,
           events = {
           val parent = ctrl.id
-          val parts = Seq.newBuilder[EventDto]
+          val parts = Seq.newBuilder[EventDto[EventId, StorageNodeDatabaseId]]
           // scalastyle:off line.size.limit
           ctrl.alcohol.map { c =>
             parts += ctrlSubEventToDto(ctrl, c, CtrlAlcoholType.id, ObsAlcoholType.id)
@@ -240,11 +240,11 @@ object DtoConverters {
       )
     }
 
-    def controlFromDto(dto: BaseEventDto): Control = {
+    def controlFromDto(dto: BaseEventDto[EventId, StorageNodeDatabaseId]): Control = {
       val p = {
         dto.relatedSubEvents.headOption.map { re =>
           re.events.map { e =>
-            e.eventTypeId -> ctrlSubEventFromDto(e.asInstanceOf[BaseEventDto])
+            e.eventTypeId -> ctrlSubEventFromDto(e.asInstanceOf[BaseEventDto[EventId, StorageNodeDatabaseId]])
           }.toMap
         }.getOrElse(Map.empty)
       }
@@ -270,12 +270,12 @@ object DtoConverters {
       )
     }
 
-    def ctrlSubEventToDto[A <: MusitEvent](
+    def ctrlSubEventToDto[A <: MusitEvent[StorageNodeDatabaseId]](
       owner: A,
       subCtrl: ControlSubEvent,
       ctrlSubEventTypeId: EventTypeId,
       obsSubEventTypeId: EventTypeId
-    ): EventDto = {
+    ): EventDto[EventId, StorageNodeDatabaseId] = {
       val relations = subCtrl.observation.map { ose =>
         Seq(
           RelatedEvents(
@@ -297,7 +297,7 @@ object DtoConverters {
     }
 
     // scalastyle:off method.length line.size.limit
-    def ctrlSubEventFromDto(dto: BaseEventDto): ControlSubEvent = {
+    def ctrlSubEventFromDto(dto: BaseEventDto[EventId, StorageNodeDatabaseId]): ControlSubEvent = {
       val ok = dto.valueLong
       val motivates = {
         dto.relatedSubEvents.headOption.flatMap { re =>
@@ -342,13 +342,13 @@ object DtoConverters {
    */
   object ObsConverters {
 
-    def observationToDto(obs: Observation): EventDto = {
+    def observationToDto(obs: Observation): EventDto[EventId, StorageNodeDatabaseId] = {
       val relEvt = Seq(
         RelatedEvents(
           relation = EventRelations.PartsOfRelation,
           events = {
           val parent = obs.id
-          val parts = Seq.newBuilder[EventDto]
+          val parts = Seq.newBuilder[EventDto[EventId, StorageNodeDatabaseId]]
           // scalastyle:off line.size.limit
           obs.alcohol.map(o => parts += obsSubEventToDto(obs, ObsAlcoholType.id, o))
           obs.cleaning.map(o => parts += obsSubEventToDto(obs, ObsCleaningType.id, o))
@@ -376,7 +376,7 @@ object DtoConverters {
       )
     }
 
-    def observationFromDto(dto: BaseEventDto): Observation = {
+    def observationFromDto(dto: BaseEventDto[EventId, StorageNodeDatabaseId]): Observation = {
       val p = {
         dto.relatedSubEvents.headOption.map { re =>
           re.events.map(e => e.eventTypeId -> obsSubEventFromDto(e)).toMap
@@ -410,11 +410,11 @@ object DtoConverters {
     }
 
     // scalastyle:off cyclomatic.complexity method.length line.size.limit
-    def obsSubEventToDto[A <: MusitEvent, T <: ObservationSubEvent](
+    def obsSubEventToDto[A <: MusitEvent[StorageNodeDatabaseId], T <: ObservationSubEvent](
       owner: A,
       subEventTypeId: EventTypeId,
       subObs: T
-    ): EventDto = {
+    ): EventDto[EventId, StorageNodeDatabaseId] = {
       subObs match {
         case obs: ObservationFromTo =>
           toExtendedDto(
@@ -479,7 +479,7 @@ object DtoConverters {
      * custom properties in a separate table in the DB.
      */
     // scalastyle:off cyclomatic.complexity method.length
-    def obsSubEventFromDto(dto: EventDto): ObservationSubEvent = {
+    def obsSubEventFromDto(dto: EventDto[EventId, StorageNodeDatabaseId]): ObservationSubEvent = {
       ObsSubEvents.unsafeFromId(dto.eventTypeId) match {
         case ObsAlcoholType =>
           ObservationAlcohol(dto.note, dto.valueString, dto.valueDouble)
@@ -509,25 +509,25 @@ object DtoConverters {
           ObservationWaterDamageAssessment(dto.note, dto.valueString)
 
         case ObsPestType =>
-          val extDto = dto.asInstanceOf[ExtendedDto]
+          val extDto = dto.asInstanceOf[ExtendedDto[EventId, StorageNodeDatabaseId]]
           val tmpDto = extDto.extension.asInstanceOf[ObservationPestDto]
           val lc = tmpDto.lifeCycles.map(LifeCyleConverters.lifecycleFromDto)
           ObservationPest(dto.note, dto.valueString, lc)
 
         case ObsHumidityType =>
-          val extDto = dto.asInstanceOf[ExtendedDto]
+          val extDto = dto.asInstanceOf[ExtendedDto[EventId, StorageNodeDatabaseId]]
           val tmpDto = extDto.extension.asInstanceOf[ObservationFromToDto]
           val fromTo = FromToDouble(tmpDto.from, tmpDto.to)
           ObservationRelativeHumidity(dto.note, fromTo)
 
         case ObsHypoxicAirType =>
-          val extDto = dto.asInstanceOf[ExtendedDto]
+          val extDto = dto.asInstanceOf[ExtendedDto[EventId, StorageNodeDatabaseId]]
           val tmpDto = extDto.extension.asInstanceOf[ObservationFromToDto]
           val fromTo = FromToDouble(tmpDto.from, tmpDto.to)
           ObservationHypoxicAir(dto.note, fromTo)
 
         case ObsTemperatureType =>
-          val extDto = dto.asInstanceOf[ExtendedDto]
+          val extDto = dto.asInstanceOf[ExtendedDto[EventId, StorageNodeDatabaseId]]
           val tmpDto = extDto.extension.asInstanceOf[ObservationFromToDto]
           val fromTo = FromToDouble(tmpDto.from, tmpDto.to)
           ObservationTemperature(dto.note, fromTo)
@@ -556,7 +556,7 @@ object DtoConverters {
       )
     }
 
-    def envReqToDto(envReq: EnvRequirement): ExtendedDto = {
+    def envReqToDto(envReq: EnvRequirement): ExtendedDto[EventId, StorageNodeDatabaseId] = {
       toExtendedDto(
         base = envReq,
         note = envReq.note,
@@ -565,7 +565,7 @@ object DtoConverters {
       )
     }
 
-    def envReqFromDto(dto: ExtendedDto): EnvRequirement = {
+    def envReqFromDto(dto: ExtendedDto[EventId, StorageNodeDatabaseId]): EnvRequirement = {
       val envReqDto = dto.extension.asInstanceOf[EnvRequirementDto]
 
       val temp = toInterval(envReqDto.temperature, envReqDto.tempTolerance)
@@ -595,7 +595,7 @@ object DtoConverters {
    */
   object MoveConverters {
 
-    def moveToDto[A <: MoveEvent](move: A): BaseEventDto = {
+    def moveToDto[EID <: MusitId, RID, A <: MoveEvent[RID]](move: A): BaseEventDto[EID, RID] = {
       toBaseDto(
         base = move,
         note = None,
@@ -605,8 +605,8 @@ object DtoConverters {
       )
     }
 
-    def moveFromDto[A <: MoveEvent](
-      dto: BaseEventDto
+    def moveFromDto[EID <: MusitId, RID, A <: MoveEvent[RID]](
+      dto: BaseEventDto[EID, RID]
     )(init: (EventType, Option[StorageNodeDatabaseId], StorageNodeDatabaseId) => A): A = {
       val eventType = EventType.fromEventTypeId(dto.eventTypeId)
       val from = dto.valueLong
@@ -614,15 +614,15 @@ object DtoConverters {
       init(eventType, from, to)
     }
 
-    def moveObjectToDto(mo: MoveObject): BaseEventDto = moveToDto(mo)
+    def moveObjectToDto(mo: MoveObject): BaseEventDto[EventId, ObjectUUID] = moveToDto(mo)
 
-    def moveObjectFromDto(dto: BaseEventDto): MoveObject =
+    def moveObjectFromDto(dto: BaseEventDto[EventId, ObjectUUID]): MoveObject =
       moveFromDto(dto)((eventType, from, to) =>
         MoveObject(
           id = dto.id,
           doneDate = dto.eventDate,
           doneBy = dto.relatedActors.map(_.actorId).headOption,
-          affectedThing = dto.relatedObjects.map(e => ObjectId(e.objectId)).headOption,
+          affectedThing = dto.relatedObjects.map(e => e.objectId).headOption,
           registeredBy = dto.registeredBy,
           registeredDate = dto.registeredDate,
           eventType = eventType,
@@ -630,9 +630,9 @@ object DtoConverters {
           to = to
         ))
 
-    def moveNodeToDto(mo: MoveNode): BaseEventDto = moveToDto(mo)
+    def moveNodeToDto(mo: MoveNode): BaseEventDto[EventId, StorageNodeDatabaseId] = moveToDto(mo)
 
-    def moveNodeFromDto(dto: BaseEventDto): MoveNode =
+    def moveNodeFromDto(dto: BaseEventDto[EventId, StorageNodeDatabaseId]): MoveNode =
       moveFromDto(dto)((eventType, from, to) =>
         MoveNode(
           id = dto.id,

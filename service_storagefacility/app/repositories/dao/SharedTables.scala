@@ -33,7 +33,7 @@ private[dao] trait SharedTables extends BaseDao with ColumnTypeMappers {
   ) extends Table[LocalObject](tag, SchemaName, "LOCAL_OBJECT") {
     // scalastyle:off method.name
     def * = (
-      objectId,
+      objectUuid,
       latestMoveId,
       currentLocationId,
       museumId
@@ -41,13 +41,13 @@ private[dao] trait SharedTables extends BaseDao with ColumnTypeMappers {
 
     // scalastyle:on method.name
 
-    val objectId = column[ObjectId]("OBJECT_ID", O.PrimaryKey)
+    val objectUuid = column[ObjectUUID]("OBJECT_UUID", O.PrimaryKey)
     val latestMoveId = column[EventId]("LATEST_MOVE_ID")
     val currentLocationId = column[StorageNodeDatabaseId]("CURRENT_LOCATION_ID")
     val museumId = column[MuseumId]("MUSEUM_ID")
 
     def create = (
-      objectId: ObjectId,
+      objectId: ObjectUUID,
       latestMoveId: EventId,
       currentLocationId: StorageNodeDatabaseId,
       museumId: MuseumId

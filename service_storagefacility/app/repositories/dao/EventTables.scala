@@ -23,7 +23,7 @@ import java.sql.{Timestamp => JSqlTimestamp}
 
 import models.event.EventTypeId
 import models.event.dto._
-import no.uio.musit.models.{ActorId, EventId, ObjectId, StorageNodeDatabaseId}
+import no.uio.musit.models._
 import repositories.dao.event.EventRelationTypes.EventRelationDto
 
 /**
@@ -46,7 +46,7 @@ private[dao] trait EventTables extends BaseDao
 
   class EventBaseTable(
       val tag: Tag
-  ) extends Table[BaseEventDto](tag, SchemaName, "EVENT") {
+  ) extends Table[BaseEventDto[EventId, _]](tag, SchemaName, "EVENT") {
 
     // scalastyle:off method.name
     def * = (
@@ -87,7 +87,7 @@ private[dao] trait EventTables extends BaseDao
       registeredBy: Option[ActorId],
       registeredDate: Option[JSqlTimestamp]
     ) =>
-      BaseEventDto(
+      BaseEventDto[EventId, _](
         id = id,
         eventTypeId = eventTypeId,
         eventDate = eventDate,
@@ -104,7 +104,7 @@ private[dao] trait EventTables extends BaseDao
         registeredDate = registeredDate
       )
 
-    def destroy(event: BaseEventDto) =
+    def destroy(event: BaseEventDto[EventId, _]) =
       Some((
         event.id,
         event.eventTypeId,
@@ -245,19 +245,19 @@ private[dao] trait EventTables extends BaseDao
 
   class EventObjectsTable(
       tag: Tag
-  ) extends Table[EventRoleObject](tag, SchemaName, "EVENT_ROLE_OBJECT") {
+  ) extends Table[EventRoleObject[ObjectUUID]](tag, SchemaName, "EVENT_ROLE_OBJECT") {
 
     def * = (eventId.?, roleId, objectId, eventTypeId) <> (create.tupled, destroy) // scalastyle:ignore
 
     val eventId = column[EventId]("EVENT_ID")
     val roleId = column[Int]("ROLE_ID")
-    val objectId = column[ObjectId]("OBJECT_ID")
+    val objectId = column[ObjectUUID]("OBJECT_UUID")
     val eventTypeId = column[EventTypeId]("EVENT_TYPE_ID")
 
     def create = (
       eventId: Option[EventId],
       roleId: Int,
-      objectId: ObjectId,
+      objectId: ObjectUUID,
       eventTypeId: EventTypeId
     ) =>
       EventRoleObject(
@@ -267,7 +267,7 @@ private[dao] trait EventTables extends BaseDao
         eventTypeId = eventTypeId
       )
 
-    def destroy(eventRoleObject: EventRoleObject) =
+    def destroy(eventRoleObject: EventRoleObject[ObjectUUID]) =
       Some((
         eventRoleObject.eventId,
         eventRoleObject.roleId,

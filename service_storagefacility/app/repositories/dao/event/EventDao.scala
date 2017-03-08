@@ -27,7 +27,7 @@ import models.event.dto.DtoConverters.MoveConverters
 import models.event.dto._
 import models.event.move.MoveObject
 import models.event.{EventTypeId, EventTypeRegistry}
-import no.uio.musit.models.{EventId, MuseumId, ObjectId, StorageNodeDatabaseId}
+import no.uio.musit.models._
 import no.uio.musit.MusitResults._
 import play.api.Logger
 import play.api.db.slick.DatabaseConfigProvider
@@ -621,7 +621,7 @@ class EventDao @Inject() (
    */
   private def eventsForObject[EType <: TopLevelEvent, Res](
     mid: MuseumId,
-    objectId: ObjectId,
+    objectId: ObjectUUID,
     eventType: EType,
     limit: Option[Int] = None
   )(success: EventDto => Res): Future[Seq[Res]] = {
@@ -655,7 +655,7 @@ class EventDao @Inject() (
    */
   def getObjectLocationHistory(
     mid: MuseumId,
-    objectId: ObjectId,
+    objectId: ObjectUUID,
     limit: Option[Int]
   ): Future[Seq[MoveObject]] = {
     eventsForObject(mid, objectId, MoveObjectType, limit) { dto =>

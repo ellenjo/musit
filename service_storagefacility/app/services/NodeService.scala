@@ -342,7 +342,7 @@ trait NodeService {
     }).value
   }
 
-  private def filterAndEnrich[ID <: MusitId, E <: MoveEvent](
+  private def filterAndEnrich[ID, E <: MoveEvent](
     current: CurrLocType[ID],
     ids: Vector[ID],
     moveEvents: Seq[E]
@@ -364,7 +364,7 @@ trait NodeService {
     }
   }
 
-  private[services] def moveBatch[ID <: MusitId, E <: MoveEvent](
+  private[services] def moveBatch[ID, E <: MoveEvent](
     mid: MuseumId,
     destination: StorageNodeDatabaseId,
     affectedIds: Seq[ID],

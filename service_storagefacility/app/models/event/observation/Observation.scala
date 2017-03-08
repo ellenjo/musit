@@ -47,7 +47,7 @@ case class Observation(
   fireProtection: Option[ObservationFireProtection] = None,
   perimeterSecurity: Option[ObservationPerimeterSecurity] = None,
   waterDamageAssessment: Option[ObservationWaterDamageAssessment] = None
-) extends MusitEvent
+) extends MusitEvent[StorageNodeDatabaseId]
 
 object Observation extends WithDateTimeFormatters {
   implicit val format: Format[Observation] = Json.format[Observation]

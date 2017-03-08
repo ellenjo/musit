@@ -26,11 +26,11 @@ import org.joda.time.DateTime
  * Top level representation of _all_ event types with definitions for the
  * shared attributes they all contain.
  */
-trait MusitEvent {
+trait MusitEvent[ThingID] {
   val id: Option[EventId]
   val doneBy: Option[ActorId]
   val doneDate: DateTime
-  val affectedThing: Option[MusitId]
+  val affectedThing: Option[ThingID]
   val registeredBy: Option[ActorId]
   val registeredDate: Option[DateTime]
   val eventType: EventType

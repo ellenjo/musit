@@ -22,17 +22,17 @@ package models.event.dto
 import java.sql.{Timestamp => JSqlTimestamp}
 
 import models.event.EventTypeId
-import no.uio.musit.models.{ActorId, EventId}
+import no.uio.musit.models.{ActorId, EventId, MusitId}
 
-sealed trait EventDto {
+sealed trait EventDto[EID <: MusitId, RID] {
   val id: Option[EventId]
   val eventTypeId: EventTypeId
   val eventDate: JSqlTimestamp
   val relatedActors: Seq[EventRoleActor]
-  val relatedObjects: Seq[EventRoleObject]
+  val relatedObjects: Seq[EventRoleObject[RID]]
   val relatedPlaces: Seq[EventRolePlace]
   val note: Option[String]
-  val relatedSubEvents: Seq[RelatedEvents]
+  val relatedSubEvents: Seq[RelatedEvents[EID, RID]]
   val partOf: Option[EventId]
   val valueLong: Option[Long]
   val valueString: Option[String]
@@ -44,22 +44,22 @@ sealed trait EventDto {
 /**
  * The EventDto contains attributes that are common across _all_ event types.
  */
-case class BaseEventDto(
+case class BaseEventDto[EID <: MusitId, RID](
   id: Option[EventId],
   eventTypeId: EventTypeId,
   eventDate: JSqlTimestamp,
   relatedActors: Seq[EventRoleActor],
-  relatedObjects: Seq[EventRoleObject],
+  relatedObjects: Seq[EventRoleObject[RID]],
   relatedPlaces: Seq[EventRolePlace],
   note: Option[String],
-  relatedSubEvents: Seq[RelatedEvents],
+  relatedSubEvents: Seq[RelatedEvents[EID, RID]],
   partOf: Option[EventId],
   valueLong: Option[Long] = None,
   valueString: Option[String] = None,
   valueDouble: Option[Double] = None,
   registeredBy: Option[ActorId],
   registeredDate: Option[JSqlTimestamp]
-) extends EventDto
+) extends EventDto[EID, RID]
 
 sealed trait DtoExtension
 
@@ -67,15 +67,15 @@ sealed trait DtoExtension
  * Having the ExtendedDto include the base EventDto allows for easier
  * conversions between domain and to.
  */
-case class ExtendedDto(
+case class ExtendedDto[EID <: MusitId, RID](
     id: Option[EventId],
     eventTypeId: EventTypeId,
     eventDate: JSqlTimestamp,
     relatedActors: Seq[EventRoleActor],
-    relatedObjects: Seq[EventRoleObject],
+    relatedObjects: Seq[EventRoleObject[RID]],
     relatedPlaces: Seq[EventRolePlace],
     note: Option[String],
-    relatedSubEvents: Seq[RelatedEvents],
+    relatedSubEvents: Seq[RelatedEvents[EID, RID]],
     partOf: Option[EventId],
     valueLong: Option[Long] = None,
     valueString: Option[String] = None,
@@ -83,9 +83,9 @@ case class ExtendedDto(
     registeredBy: Option[ActorId],
     registeredDate: Option[JSqlTimestamp],
     extension: DtoExtension
-) extends EventDto {
+) extends EventDto[EID, RID] {
 
-  def baseEventDto: BaseEventDto = {
+  def baseEventDto: BaseEventDto[EID, RID] = {
     BaseEventDto(
       id = id,
       eventTypeId = eventTypeId,
@@ -108,7 +108,7 @@ case class ExtendedDto(
 
 object ExtendedDto {
 
-  def apply(bed: BaseEventDto, ext: DtoExtension): ExtendedDto = {
+  def apply[EID <: MusitId, RID](bed: BaseEventDto[EID, RID], ext: DtoExtension): ExtendedDto[EID, RID] = {
     ExtendedDto(
       id = bed.id,
       eventTypeId = bed.eventTypeId,

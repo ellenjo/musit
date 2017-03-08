@@ -22,7 +22,7 @@ package repositories.dao.caching
 import com.google.inject.Inject
 import models.event.dto.{EventDto, LocalObject}
 import no.uio.musit.MusitResults.{MusitDbError, MusitResult, MusitSuccess}
-import no.uio.musit.models.{EventId, MuseumId, ObjectId, StorageNodeDatabaseId}
+import no.uio.musit.models._
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import repositories.dao.SharedTables
@@ -53,9 +53,9 @@ class LocalObjectDao @Inject() (
     )
   }
 
-  def currentLocation(objectId: ObjectId): Future[Option[StorageNodeDatabaseId]] = {
+  def currentLocation(objectId: ObjectUUID): Future[Option[StorageNodeDatabaseId]] = {
     val query = localObjectsTable.filter { locObj =>
-      locObj.objectId === objectId
+      locObj.objectUuid === objectId
     }.map(_.currentLocationId).max.result
 
     db.run(query)
@@ -68,11 +68,11 @@ class LocalObjectDao @Inject() (
    * @return Eventually returns a Map of ObjectIds and StorageNodeDatabaseId
    */
   def currentLocations(
-    objectIds: Seq[ObjectId]
-  ): Future[MusitResult[Map[ObjectId, Option[StorageNodeDatabaseId]]]] = {
+    objectIds: Seq[ObjectUUID]
+  ): Future[MusitResult[Map[ObjectUUID, Option[StorageNodeDatabaseId]]]] = {
     type QLocQuery = Query[LocalObjectsTable, LocalObjectsTable#TableElementType, Seq]
 
-    def buildQuery(ids: Seq[ObjectId]) = localObjectsTable.filter(_.objectId inSet ids)
+    def buildQuery(ids: Seq[ObjectUUID]) = localObjectsTable.filter(_.objectUuid inSet ids)
 
     val q = objectIds.grouped(500).foldLeft[(Int, QLocQuery)]((0, localObjectsTable)) {
       case (qry, ids) =>
@@ -81,7 +81,7 @@ class LocalObjectDao @Inject() (
     }
 
     db.run(q._2.result).map { l =>
-      objectIds.foldLeft(Map.empty[ObjectId, Option[StorageNodeDatabaseId]]) {
+      objectIds.foldLeft(Map.empty[ObjectUUID, Option[StorageNodeDatabaseId]]) {
         case (res, oid) =>
           val maybeNodeId = l.find(_.objectId == oid).map(_.currentLocationId)
           res ++ Map(oid -> maybeNodeId)

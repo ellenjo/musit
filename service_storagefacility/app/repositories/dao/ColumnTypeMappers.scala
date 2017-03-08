@@ -66,6 +66,12 @@ trait ColumnTypeMappers {
       strId => ActorId(UUID.fromString(strId))
     )
 
+  implicit val objectUuidMapper: BaseColumnType[ObjectUUID] =
+    MappedColumnType.base[ObjectUUID, String](
+      oid => oid.asString,
+      strId => ObjectUUID(UUID.fromString(strId))
+    )
+
   implicit lazy val storageTypeMapper =
     MappedColumnType.base[StorageType, String](
       storageType => storageType.entryName,

@@ -46,7 +46,7 @@ case class Control(
   pest: Option[ControlPest] = None,
   relativeHumidity: Option[ControlRelativeHumidity] = None,
   temperature: Option[ControlTemperature] = None
-) extends MusitEvent
+) extends MusitEvent[StorageNodeDatabaseId]
 
 object Control extends WithDateTimeFormatters {
   implicit val format: Format[Control] = Json.format[Control]

@@ -37,6 +37,7 @@ import repositories.dao.event.EventDao
 import repositories.dao.storage._
 
 import scala.concurrent.Future
+import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 
 /**
@@ -474,7 +475,7 @@ class StorageNodeService @Inject() (
   /**
    * Helper to encapsulate shared logic between the public move methods.
    */
-  private def persistMoveEvents[ID <: MusitId, E <: MoveEvent](
+  private def persistMoveEvents[ID, E <: MoveEvent](
     mid: MuseumId,
     events: Seq[E]
   )(
@@ -566,16 +567,13 @@ class StorageNodeService @Inject() (
     mid: MuseumId,
     destination: StorageNodeDatabaseId,
     moveEvents: Seq[MoveObject]
-  )(implicit currUsr: AuthenticatedUser): Future[MusitResult[Seq[ObjectId]]] = {
+  )(implicit currUsr: AuthenticatedUser): Future[MusitResult[Seq[ObjectUUID]]] = {
     // Calling get on affectedThing, after filtering out nonEmpty ones, is safe.
     val objIds = moveEvents.filter(_.affectedThing.nonEmpty).map(_.affectedThing.get)
-    // scalastyle:ignore
-    val currentLoc = localObjectDao.currentLocations(objIds)
 
     val res = for {
       currentLoc <- MusitResultT(localObjectDao.currentLocations(objIds))
       movedObjects <- MusitResultT(moveBatch(mid, destination, objIds, currentLoc, moveEvents) {
-        // scalastyle:ignore
         case (_, _, events) =>
           persistMoveEvents(mid, events) { eventIds =>
             // Again the get on affectedThing is safe since we're guaranteed its
@@ -597,7 +595,7 @@ class StorageNodeService @Inject() (
    */
   def objectLocationHistory(
     mid: MuseumId,
-    oid: ObjectId,
+    oid: ObjectUUID,
     limit: Option[Int]
   ): Future[MusitResult[Seq[LocationHistory]]] = {
     val res = eventDao.getObjectLocationHistory(mid, oid, limit).flatMap { events =>
@@ -648,7 +646,7 @@ class StorageNodeService @Inject() (
    */
   def currentObjectLocation(
     mid: MuseumId,
-    oid: ObjectId
+    oid: ObjectUUID
   ): Future[MusitResult[Option[StorageNode]]] = {
     val currentNodeId = localObjectDao.currentLocation(oid)
     currentNodeId.flatMap { optCurrentNodeId =>
@@ -666,11 +664,11 @@ class StorageNodeService @Inject() (
    */
   def currentObjectLocations(
     mid: MuseumId,
-    oids: Seq[ObjectId]
+    oids: Seq[ObjectUUID]
   ): Future[MusitResult[Seq[ObjectsLocation]]] = {
 
     def findObjectLocations(
-      objNodeMap: Map[ObjectId, Option[StorageNodeDatabaseId]],
+      objNodeMap: Map[ObjectUUID, Option[StorageNodeDatabaseId]],
       nodes: Seq[GenericStorageNode]
     ): Future[MusitResult[Seq[ObjectsLocation]]] = {
       nodes.foldLeft(Future.successful(List.empty[Future[ObjectsLocation]])) {

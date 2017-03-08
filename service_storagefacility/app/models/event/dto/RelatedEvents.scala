@@ -19,7 +19,9 @@
 
 package models.event.dto
 
+import no.uio.musit.models.MusitId
+
 /**
  * Events related (via relation) to a given event.
  */
-case class RelatedEvents(relation: EventRelation, events: Seq[EventDto])
+case class RelatedEvents[ID <: MusitId, RID](relation: EventRelation, events: Seq[EventDto[ID, RID]])
