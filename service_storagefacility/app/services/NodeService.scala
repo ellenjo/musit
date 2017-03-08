@@ -50,7 +50,7 @@ trait NodeService {
   type NodeInsertIO[A] = (MuseumId, A) => Future[StorageNodeDatabaseId]
   type SetEnvReq[A] = (A, Option[EnvironmentRequirement]) => A
   type NodeUpdateIO[A] = (StorageNodeDatabaseId, NodePath) => Future[MusitResult[Unit]]
-  type GetNodeIO[A] = (MuseumId, StorageNodeDatabaseId) => Future[MusitResult[Option[A]]]
+  type GetNodeIO[A] = (MuseumId, StorageNodeId) => Future[MusitResult[Option[A]]]
   type CopyNode[A <: StorageNode] = (A, Option[EnvironmentRequirement], Option[Seq[NamedPathElement]]) => A // scalastyle:ignore
   type CurrLocType[ID] = Map[ID, Option[StorageNodeDatabaseId]]
 
@@ -59,13 +59,14 @@ trait NodeService {
    */
   private[services] def saveEnvReq(
     mid: MuseumId,
-    nodeId: StorageNodeDatabaseId,
+    nodeId: StorageNodeId,
     envReq: EnvironmentRequirement
   )(implicit currUsr: AuthenticatedUser): Future[Option[EnvironmentRequirement]] = {
-    unitDao.getById(mid, nodeId).flatMap { mayBeNode =>
-      mayBeNode.map { _ =>
+    unitDao.getByUuid(mid, nodeId).flatMap { mayBeNode =>
+      mayBeNode.map { n =>
         val now = dateTimeNow
-        val er = EnvRequirement.toEnvRequirementEvent(currUsr.id, nodeId, now, envReq)
+        val nid = n.nodeId.get // This is safe, because we have found the node and it will have an id
+        val er = EnvRequirement.toEnvRequirementEvent(currUsr.id, nid, now, envReq)
 
         envReqService.add(mid, er).map {
           case MusitSuccess(success) =>
@@ -244,9 +245,10 @@ trait NodeService {
       // Call the insert function to persist the node if the path is valid.
       if isValidDest
       nodeId <- insert(mid, node)
+      nodeUuid <- node.nodeId.get //Todo this is a hack
       pathUpdated <- updateWithPath(nodeId, maybePath.getOrElse(NodePath.empty).appendChild(nodeId)) // scalastyle:ignore
-      _ <- node.environmentRequirement.map(er => saveEnvReq(mid, nodeId, er)).getOrElse(Future.successful(None)) // scalastyle:ignore
-      theNode <- getNode(mid, nodeId)
+      _ <- node.environmentRequirement.map(er => saveEnvReq(mid, nodeUuid, er)).getOrElse(Future.successful(None)) // scalastyle:ignore
+      theNode <- getNode(mid, nodeUuid)
     } yield {
       logger.debug(s"Successfully added node ${node.name} of type" +
         s" ${node.storageType} to ${maybePath.getOrElse(NodePath.empty)}")
@@ -285,6 +287,23 @@ trait NodeService {
     }
   }
 
+  private[services] def getEnvReqBUuid(
+    mid: MuseumId,
+    id: StorageNodeId
+  ): Future[Option[EnvironmentRequirement]] = {
+    envReqService.findLatestForNodeId(mid, id).map {
+      case MusitSuccess(maybeEnvRequirement) => maybeEnvRequirement
+      case _ => None
+
+    }.recover {
+      case NonFatal(ex) =>
+        // If we fail fetching the envreq event, we'll return None.
+        logger.warn("Something went wrong trying to locate latest " +
+          s"environment requirement data for unit $id", ex)
+        None
+    }
+  }
+
   /**
    * Helper function that applies the common logic for fetching a storage node.
    *
@@ -295,9 +314,9 @@ trait NodeService {
    * @tparam A
    * @return
    */
-  private[services] def nodeById[A <: StorageNode](
+  private[services] def nodeByUuid[A <: StorageNode](
     mid: MuseumId,
-    id: StorageNodeDatabaseId,
+    id: StorageNodeId,
     eventuallyMaybeNode: Future[Option[A]]
   )(cp: CopyNode[A]): Future[MusitResult[Option[A]]] = {
     val eventuallyMaybeEnvReq = getEnvReq(mid, id)
@@ -316,7 +335,38 @@ trait NodeService {
     }
   }
 
-  private def filterAndEnrich[ID <: MusitId, E <: MoveEvent](
+  /**
+   * Helper function that applies the common logic for fetching a storage node.
+   *
+   * @param mid
+   * @param id
+   * @param eventuallyMaybeNode
+   * @param cp
+   * @tparam A
+   * @return
+   */
+  private[services] def nodeById[A <: StorageNode](
+    mid: MuseumId,
+    id: StorageNodeId,
+    eventuallyMaybeNode: Future[Option[A]]
+  )(cp: CopyNode[A]): Future[MusitResult[Option[A]]] = {
+    val eventuallyMaybeEnvReq = getEnvReq(mid, id)
+    for {
+      maybeNode <- eventuallyMaybeNode
+      maybeEnvReq <- eventuallyMaybeEnvReq
+      namedPathElems <- maybeNode.map { node =>
+        unitDao.namesForPath(node.path)
+      }.getOrElse(Future.successful(Seq.empty))
+    } yield {
+      val maybePathElems = {
+        if (namedPathElems.nonEmpty) Some(namedPathElems)
+        else None
+      }
+      MusitSuccess(maybeNode.map(n => cp(n, maybeEnvReq, maybePathElems)))
+    }
+  }
+
+  private def filterAndEnrich[ID <: MusitUUID, E <: MoveEvent](
     current: CurrLocType[ID],
     ids: Vector[ID],
     moveEvents: Seq[E]
@@ -338,7 +388,7 @@ trait NodeService {
     }
   }
 
-  private[services] def moveBatch[ID <: MusitId, E <: MoveEvent](
+  private[services] def moveBatch[ID <: MusitUUID, E <: MoveEvent](
     mid: MuseumId,
     destination: StorageNodeDatabaseId,
     affectedIds: Seq[ID],

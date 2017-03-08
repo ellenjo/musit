@@ -22,7 +22,7 @@ package repositories.dao.event
 import com.google.inject.{Inject, Singleton}
 import models.event.EventTypeId
 import models.event.dto.EventRoleObject
-import no.uio.musit.models.{EventId, ObjectId}
+import no.uio.musit.models.{EventId, ObjectUUID}
 import play.api.db.slick.DatabaseConfigProvider
 import repositories.dao.EventTables
 
@@ -49,12 +49,12 @@ class EventObjectsDao @Inject() (
   }
 
   def latestEventIdsForObject(
-    objectId: ObjectId,
+    objectId: ObjectUUID,
     eventTypeId: EventTypeId,
     limit: Option[Int] = None
   ): Future[Seq[EventId]] = {
     val q = eventObjectsTable.filter { erp =>
-      erp.objectId === objectId && erp.eventTypeId === eventTypeId
+      erp.objectUuid === objectId && erp.eventTypeId === eventTypeId
     }.sortBy(_.eventId.desc).map(_.eventId)
 
     val query = limit.map {

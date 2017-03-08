@@ -19,11 +19,12 @@
 
 package models.event.dto
 
-import no.uio.musit.models.{EventId, MuseumId, ObjectId, StorageNodeDatabaseId}
+import no.uio.musit.models._
 
 case class LocalObject(
-  objectId: ObjectId,
+  objectUuid: ObjectUUID,
   latestMoveId: EventId,
   currentLocationId: StorageNodeDatabaseId,
-  museumId: MuseumId
+  museumId: MuseumId,
+  objectType: String
 )

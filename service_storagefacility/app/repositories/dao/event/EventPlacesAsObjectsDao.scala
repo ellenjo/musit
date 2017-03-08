@@ -22,7 +22,7 @@ package repositories.dao.event
 import com.google.inject.{Inject, Singleton}
 import models.event.EventTypeId
 import models.event.dto.{EventRoleObject, EventRolePlace}
-import no.uio.musit.models.{EventId, MuseumId, StorageNodeDatabaseId}
+import no.uio.musit.models._
 import play.api.Logger
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
@@ -44,7 +44,7 @@ class EventPlacesAsObjectsDao @Inject() (
     relatedObjects: Seq[EventRoleObject]
   ): DBIO[Option[Int]] = {
     val relObjectsAsPlaces = relatedObjects.map { ero =>
-      EventRolePlace(Some(eventId), ero.roleId, ero.objectId, ero.eventTypeId)
+      EventRoleObject(Some(eventId), ero.roleId, ero.objectUuid, ero.eventTypeId)
     }
     placesAsObjectsTable ++= relObjectsAsPlaces
   }
@@ -54,18 +54,19 @@ class EventPlacesAsObjectsDao @Inject() (
     db.run(query.result).map { places =>
       logger.debug(s"Found ${places.size} places")
       places.map { place =>
-        EventRoleObject(place.eventId, place.roleId, place.placeId, place.eventTypeId)
+        EventRoleObject(place.eventId, place.roleId, place.objectUuid, place.eventTypeId)
       }
     }
   }
 
   def latestEventIdFor(
     mid: MuseumId,
-    nodeId: StorageNodeDatabaseId,
+    nodeId: StorageNodeId,
     eventTypeId: EventTypeId
   ): Future[Option[EventId]] = {
+    val sidAsObjUuid = ObjectUUID.fromUUID(nodeId.underlying)
     val queryMax = placesAsObjectsTable.filter { erp =>
-      erp.placeId === nodeId && erp.eventTypeId === eventTypeId
+      erp.objectUuid === sidAsObjUuid && erp.eventTypeId === eventTypeId
     }.map(_.eventId).max.result
 
     db.run(queryMax)
@@ -73,12 +74,13 @@ class EventPlacesAsObjectsDao @Inject() (
 
   def latestEventIdsForNode(
     mid: MuseumId,
-    nodeId: StorageNodeDatabaseId,
+    nodeId: StorageNodeId,
     eventTypeId: EventTypeId,
     limit: Option[Int] = None
   ): Future[Seq[EventId]] = {
+    val sidAsObjUuid = ObjectUUID.fromUUID(nodeId.underlying)
     val q = placesAsObjectsTable.filter { erp =>
-      erp.placeId === nodeId && erp.eventTypeId === eventTypeId
+      erp.objectUuid === sidAsObjUuid && erp.eventTypeId === eventTypeId
     }.sortBy(_.eventId.desc).map(_.eventId)
 
     val query = limit.map {

@@ -105,11 +105,13 @@ CREATE TABLE MUSARK_STORAGE.EVENT_RELATION_EVENT (
 );
 
 CREATE TABLE MUSARK_STORAGE.LOCAL_OBJECT (
-  object_id           NUMBER(20) NOT NULL,
+  --object_id           NUMBER(20) NOT NULL,
+  object_uuid         VARCHAR2(36) NOT NULL,
   latest_move_id      NUMBER(20) NOT NULL,
   current_location_id NUMBER(20) NOT NULL,
   museum_id           INTEGER    NOT NULL,
-  PRIMARY KEY (object_id),
+  object_type         VARCHAR2(25),
+  PRIMARY KEY (object_uuid),
   FOREIGN KEY (latest_move_id) REFERENCES MUSARK_STORAGE.EVENT (event_id),
   FOREIGN KEY (current_location_id) REFERENCES MUSARK_STORAGE.STORAGE_NODE (storage_node_id)
 );
@@ -126,12 +128,14 @@ CREATE TABLE MUSARK_STORAGE.EVENT_ROLE_ACTOR (
 CREATE TABLE MUSARK_STORAGE.EVENT_ROLE_OBJECT (
   event_id      NUMBER(20) NOT NULL,
   role_id       INTEGER    NOT NULL,
-  object_id     NUMBER(20) NOT NULL,
+--  object_id     NUMBER(20) NOT NULL,
   event_type_id NUMBER(20) NOT NULL,
-  PRIMARY KEY (event_id, role_id, object_id),
+  object_uuid   VARCHAR2(36) NOT NULL,
+  PRIMARY KEY (event_id, role_id,object_uuid),
   FOREIGN KEY (event_id) REFERENCES MUSARK_STORAGE.EVENT (event_id),
   FOREIGN KEY (role_id) REFERENCES MUSARK_STORAGE.ROLE (role_id),
-  FOREIGN KEY (object_id) REFERENCES MUSARK_STORAGE.LOCAL_OBJECT (object_id)
+--  FOREIGN KEY (object_id) REFERENCES MUSARK_STORAGE.LOCAL_OBJECT (object_id),
+  FOREIGN KEY (object_uuid) REFERENCES MUSARK_STORAGE.LOCAL_OBJECT (object_uuid)
 );
 
 -- This is the generic event-to-place relation, the place of where an event
@@ -154,12 +158,12 @@ CREATE TABLE MUSARK_STORAGE.EVENT_ROLE_PLACE (
 CREATE TABLE MUSARK_STORAGE.EVENT_ROLE_PLACE_AS_OBJECT (
   event_id      NUMBER(20) NOT NULL,
   role_id       INTEGER    NOT NULL,
-  place_id      NUMBER(20) NOT NULL,
+  place_uuid   VARCHAR2(36) NOT NULL,
   event_type_id NUMBER(20) NOT NULL,
-  PRIMARY KEY (event_id, role_id, place_id),
+  PRIMARY KEY (event_id, role_id, place_uuid),
   FOREIGN KEY (event_id) REFERENCES MUSARK_STORAGE.EVENT (event_id),
   FOREIGN KEY (role_id) REFERENCES MUSARK_STORAGE.ROLE (role_id),
-  FOREIGN KEY (place_id) REFERENCES MUSARK_STORAGE.STORAGE_NODE (storage_node_id)
+  FOREIGN KEY (place_uuid) REFERENCES MUSARK_STORAGE.STORAGE_NODE (storage_node_uuid)
 );
 
 -- ===========================================================================

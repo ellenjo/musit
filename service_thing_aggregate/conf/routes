@@ -15,7 +15,6 @@ GET        /museum/:mid/storagenodes/:nodeId/stats            controllers.StatsC
 
 # Delphi bridge services. Only to be used by the Delphi clients.
 # ~~~~
-PUT        /delphi/objects/tranlsate_old_ids                  controllers.DelphiBridgeController.translateOldObjectIds
 GET        /delphi/museum/:mid/nodes/external                 controllers.DelphiBridgeController.outsideNodes(mid: Int)
 GET        /delphi/objects/:oldObjectId                       controllers.DelphiBridgeController.currentNode(oldObjectId: Long, schemaName: String)
 

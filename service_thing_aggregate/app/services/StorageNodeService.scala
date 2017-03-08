@@ -68,7 +68,7 @@ class StorageNodeService @Inject() (
       case MusitSuccess(mobj) =>
         mobj match {
           case Some(obj) =>
-            nodeDao.currentLocation(obj.museumId, obj.id).flatMap {
+            nodeDao.currentLocation(obj.museumId, obj.uuid).flatMap {
               case Some(sn) =>
                 nodeDao.namesForPath(sn._2).map { np =>
                   // Only authorized users are allowed to see the full path

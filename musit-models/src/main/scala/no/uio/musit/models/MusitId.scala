@@ -31,7 +31,4 @@ object MusitId {
   implicit def asEventId(m: MusitId): EventId =
     EventId(m.underlying)
 
-  implicit def asObjectId(m: MusitId): ObjectId =
-    ObjectId(m.underlying)
-
 }

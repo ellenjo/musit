@@ -54,9 +54,9 @@ class StorageUnitDao @Inject() (
    * @param id
    * @return
    */
-  def exists(mid: MuseumId, id: StorageNodeDatabaseId): Future[MusitResult[Boolean]] = {
+  def exists(mid: MuseumId, id: StorageNodeId): Future[MusitResult[Boolean]] = {
     val query = storageNodeTable.filter { su =>
-      su.museumId === mid && su.id === id && su.isDeleted === false
+      su.museumId === mid && su.uuid === id && su.isDeleted === false
     }.exists.result
 
     db.run(query).map(found => MusitSuccess(found)).recover {
@@ -101,8 +101,8 @@ class StorageUnitDao @Inject() (
   /**
    * TODO: Document me!!!
    */
-  def getById(mid: MuseumId, id: StorageNodeDatabaseId): Future[Option[StorageUnit]] = {
-    val query = getUnitByIdAction(mid, id)
+  def getById(mid: MuseumId, id: StorageNodeId): Future[Option[StorageUnit]] = {
+    val query = getUnitByUuidAction(mid, id)
     db.run(query).map(_.map(StorageNodeDto.toStorageUnit))
   }
 
@@ -114,6 +114,26 @@ class StorageUnitDao @Inject() (
     id: StorageNodeDatabaseId
   ): Future[Option[GenericStorageNode]] = {
     val query = getNodeByIdAction(mid, id)
+    db.run(query).map(_.map(StorageNodeDto.toGenericStorageNode))
+  }
+
+  /**
+   * Fetches the node data for provided database uuids
+   *
+   * @param mid
+   * @param ids
+   * @return
+   */
+  def getNodesByUuids(
+    mid: MuseumId,
+    ids: Seq[StorageNodeId]
+  ): Future[Seq[GenericStorageNode]] = {
+    val query = storageNodeTable.filter { sn =>
+      sn.museumId === mid &&
+        sn.isDeleted === false &&
+        (sn.uuid inSet ids)
+    }.result
+
     db.run(query).map(_.map(StorageNodeDto.toGenericStorageNode))
   }
 
@@ -175,9 +195,9 @@ class StorageUnitDao @Inject() (
    * @param id StorageNodeId for the Root node.
    * @return An Option that contains the Root node if it was found.
    */
-  def findRootNode(id: StorageNodeDatabaseId): Future[MusitResult[Option[RootNode]]] = {
+  def findRootNode(id: StorageNodeId): Future[MusitResult[Option[RootNode]]] = {
     val query = storageNodeTable.filter { root =>
-      root.id === id &&
+      root.uuid === id &&
         root.isDeleted === false &&
         (root.storageType === rootNodeType || root.storageType === rootLoanType)
     }.result.headOption
@@ -233,31 +253,20 @@ class StorageUnitDao @Inject() (
   }
 
   /**
-   * Get the StorageType for the given StorageNodeDatabaseId
-   */
-  def getStorageTypeFor(
-    mid: MuseumId,
-    id: StorageNodeDatabaseId
-  ): Future[MusitResult[Option[StorageType]]] = {
-    val query = storageNodeTable.filter { node =>
-      node.id === id && node.isDeleted === false
-    }.map(_.storageType).result.headOption
-
-    db.run(query).map(MusitSuccess.apply)
-  }
-
-  /**
    * Get the StorageNodeDatabaseId and StorageType for the given StorageNodeId
    */
   def getStorageTypeFor(
     mid: MuseumId,
     uuid: StorageNodeId
-  ): Future[MusitResult[Option[(StorageNodeDatabaseId, StorageType)]]] = {
+  ): Future[MusitResult[Option[(StorageNodeId, StorageType)]]] = {
     val query = storageNodeTable.filter { n =>
       n.museumId === mid && n.uuid === uuid && n.isDeleted === false
-    }.map(n => n.id -> n.storageType).result.headOption
+    }.map(n => n.uuid -> n.storageType).result.headOption
 
-    db.run(query).map(MusitSuccess.apply)
+    db.run(query).map { res =>
+      val r = res.map(t => t._1.get -> t._2)
+      MusitSuccess(r)
+    }
   }
 
   /**
@@ -288,7 +297,13 @@ class StorageUnitDao @Inject() (
   def insertRoot(mid: MuseumId, root: RootNode): Future[StorageNodeDatabaseId] = {
     logger.debug("Inserting root node...")
     val dto = StorageNodeDto.fromRootNode(mid, root).asStorageUnitDto(mid)
-    db.run(insertNodeAction(dto))
+
+    val action = for {
+      dbId <- insertNodeAction(dto)
+      _ <- updatePathAction(dbId, NodePath.empty.appendChild(dbId))
+    } yield dbId
+
+    db.run(action.transactionally)
   }
 
   /**
@@ -317,7 +332,7 @@ class StorageUnitDao @Inject() (
   /**
    * Updates the path for all nodes that starts with the "oldPath".
    *
-   * @param id   the StorageNodeId to update
+   * @param id   the StorageNodeDatabaseId to update
    * @param path the NodePath to set
    * @return MusitResult[Unit]
    */
@@ -366,7 +381,7 @@ class StorageUnitDao @Inject() (
     nodes: Seq[StorageNode],
     newParent: StorageNode
   ): Future[MusitResult[Unit]] = {
-    val a1 = DBIO.sequence(nodes.map(n => updatePartOfAction(n.id.get, newParent.id)))
+    val a1 = DBIO.sequence(nodes.map(n => updatePartOfAction(n.nodeId.get, newParent.id)))
     val a2 = DBIO.sequence {
       nodes.map(n => updatePathsAction(n.path, newParent.path.appendChild(n.id.get)))
     }
@@ -387,11 +402,11 @@ class StorageUnitDao @Inject() (
    */
   def update(
     mid: MuseumId,
-    id: StorageNodeDatabaseId,
+    id: StorageNodeId,
     storageUnit: StorageUnit
   ): Future[MusitResult[Option[Int]]] = {
     val dto = StorageNodeDto.fromStorageUnit(mid, storageUnit)
-    db.run(updateNodeAction(mid, id, dto)).map {
+    db.run(updateNodeUuidAction(mid, id, dto)).map {
       case res: Int if res == 1 => MusitSuccess(Some(res))
       case res: Int if res == 0 => MusitSuccess(None)
       case res: Int =>
@@ -417,10 +432,10 @@ class StorageUnitDao @Inject() (
   def markAsDeleted(
     doneBy: ActorId,
     mid: MuseumId,
-    id: StorageNodeDatabaseId
+    id: StorageNodeId
   ): Future[MusitResult[Int]] = {
     val query = storageNodeTable.filter { su =>
-      su.id === id && su.isDeleted === false && su.museumId === mid
+      su.uuid === id && su.isDeleted === false && su.museumId === mid
     }.map { del =>
       (del.isDeleted, del.updatedBy, del.updatedDate)
     }.update((true, Some(doneBy), Some(dateTimeNow)))
@@ -440,7 +455,7 @@ class StorageUnitDao @Inject() (
    * TODO: Document me!!!
    */
   def updatePartOf(
-    id: StorageNodeDatabaseId,
+    id: StorageNodeId,
     partOf: Option[StorageNodeDatabaseId]
   ): Future[MusitResult[Int]] = {
     val query = updatePartOfAction(id, partOf)

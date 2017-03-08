@@ -29,8 +29,8 @@ trait Tables extends HasDatabaseConfigProvider[JdbcProfile]
   import driver.api._
 
   // Type aliases representing rows for the different tables
-  type ObjectRow = ((Option[ObjectId], MuseumId, String, Option[Long], Option[String], Option[Long], Option[Long], Boolean, String, Option[String], Option[Long], Option[Int])) // scalastyle:ignore
-  type LocalObjectRow = ((ObjectId, EventId, StorageNodeDatabaseId, MuseumId))
+  type ObjectRow = ((ObjectUUID, MuseumId, String, Option[Long], Option[String], Option[Long], Option[Long], Boolean, String, Option[String], Option[Long], Option[Int])) // scalastyle:ignore
+  type LocalObjectRow = ((ObjectUUID, EventId, StorageNodeDatabaseId, MuseumId, String))
   type StorageNodeRow = (Option[StorageNodeDatabaseId], String, String, Option[Double], Option[Double], Option[StorageNodeDatabaseId], Option[Double], Option[Double], Option[String], Option[String], Boolean, MuseumId, NodePath) // scalastyle:ignore
 
   val objTable = TableQuery[ObjectTable]
@@ -46,7 +46,7 @@ trait Tables extends HasDatabaseConfigProvider[JdbcProfile]
 
     // scalastyle:off method.name
     def * = (
-      id.?,
+      uuid,
       museumId,
       museumNo,
       museumNoAsNumber,
@@ -61,7 +61,7 @@ trait Tables extends HasDatabaseConfigProvider[JdbcProfile]
     )
     // scalastyle:on method.name
 
-    val id = column[ObjectId]("OBJECT_ID", O.PrimaryKey, O.AutoInc)
+    val uuid = column[ObjectUUID]("MUSITTHING_UUID")
     val museumId = column[MuseumId]("MUSEUMID")
     val museumNo = column[String]("MUSEUMNO")
     val museumNoAsNumber = column[Option[Long]]("MUSEUMNOASNUMBER")
@@ -85,18 +85,20 @@ trait Tables extends HasDatabaseConfigProvider[JdbcProfile]
   ) extends Table[LocalObjectRow](tag, Some("MUSARK_STORAGE"), "LOCAL_OBJECT") {
     // scalastyle:off method.name
     def * = (
-      objectId,
+      objectUuid,
       latestMoveId,
       currentLocationId,
-      museumId
+      museumId,
+      objectType
     )
 
     // scalastyle:on method.name
 
-    val objectId = column[ObjectId]("OBJECT_ID", O.PrimaryKey)
+    val objectUuid = column[ObjectUUID]("OBJECT_UUID", O.PrimaryKey)
     val latestMoveId = column[EventId]("LATEST_MOVE_ID")
     val currentLocationId = column[StorageNodeDatabaseId]("CURRENT_LOCATION_ID")
     val museumId = column[MuseumId]("MUSEUM_ID")
+    val objectType = column[String]("OBJECT_TYPE")
   }
 
   /**

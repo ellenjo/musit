@@ -23,7 +23,7 @@ import java.sql.{Timestamp => JSqlTimestamp}
 
 import models.event.EventTypeId
 import models.event.dto._
-import no.uio.musit.models.{ActorId, EventId, ObjectId, StorageNodeDatabaseId}
+import no.uio.musit.models._
 import repositories.dao.event.EventRelationTypes.EventRelationDto
 
 /**
@@ -247,23 +247,23 @@ private[dao] trait EventTables extends BaseDao
       tag: Tag
   ) extends Table[EventRoleObject](tag, SchemaName, "EVENT_ROLE_OBJECT") {
 
-    def * = (eventId.?, roleId, objectId, eventTypeId) <> (create.tupled, destroy) // scalastyle:ignore
+    def * = (eventId.?, roleId, objectUuid, eventTypeId) <> (create.tupled, destroy) // scalastyle:ignore
 
     val eventId = column[EventId]("EVENT_ID")
     val roleId = column[Int]("ROLE_ID")
-    val objectId = column[ObjectId]("OBJECT_ID")
+    val objectUuid = column[ObjectUUID]("OBJECT_UUID")
     val eventTypeId = column[EventTypeId]("EVENT_TYPE_ID")
 
     def create = (
       eventId: Option[EventId],
       roleId: Int,
-      objectId: ObjectId,
+      objectUuid: ObjectUUID,
       eventTypeId: EventTypeId
     ) =>
       EventRoleObject(
         eventId = eventId,
         roleId = roleId,
-        objectId = objectId,
+        objectUuid = objectUuid,
         eventTypeId = eventTypeId
       )
 
@@ -271,40 +271,40 @@ private[dao] trait EventTables extends BaseDao
       Some((
         eventRoleObject.eventId,
         eventRoleObject.roleId,
-        eventRoleObject.objectId,
+        eventRoleObject.objectUuid,
         eventRoleObject.eventTypeId
       ))
   }
 
   class EventPlacesAsObjectsTable(
       val tag: Tag
-  ) extends Table[EventRolePlace](tag, SchemaName, "EVENT_ROLE_PLACE_AS_OBJECT") {
-    def * = (eventId.?, roleId, placeId, eventTypeId) <> (create.tupled, destroy) // scalastyle:ignore
+  ) extends Table[EventRoleObject](tag, SchemaName, "EVENT_ROLE_PLACE_AS_OBJECT") {
+    def * = (eventId.?, roleId, objectUuid, eventTypeId) <> (create.tupled, destroy) // scalastyle:ignore
 
     val eventId = column[EventId]("EVENT_ID")
     val roleId = column[Int]("ROLE_ID")
-    val placeId = column[StorageNodeDatabaseId]("PLACE_ID")
+    val objectUuid = column[ObjectUUID]("PLACE_UUID")
     val eventTypeId = column[EventTypeId]("EVENT_TYPE_ID")
 
     def create = (
       eventId: Option[EventId],
       roleId: Int,
-      placeId: StorageNodeDatabaseId,
+      objectUuid: ObjectUUID,
       eventTypeId: EventTypeId
     ) =>
-      EventRolePlace(
+      EventRoleObject(
         eventId = eventId,
         roleId = roleId,
-        placeId = placeId,
+        objectUuid = objectUuid,
         eventTypeId = eventTypeId
       )
 
-    def destroy(eventRolePlace: EventRolePlace) =
+    def destroy(ero: EventRoleObject) =
       Some((
-        eventRolePlace.eventId,
-        eventRolePlace.roleId,
-        eventRolePlace.placeId,
-        eventRolePlace.eventTypeId
+        ero.eventId,
+        ero.roleId,
+        ero.objectUuid,
+        ero.eventTypeId
       ))
   }
 

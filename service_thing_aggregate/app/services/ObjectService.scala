@@ -39,21 +39,6 @@ class ObjectService @Inject() (
   private val logger = Logger(classOf[ObjectService])
 
   /**
-   * Service that looks up objects using the old primary key in for the old DB
-   * schema name. Implementation is specific to the Delphi client integration.
-   *
-   * @param oldSchema    The old DB schema name
-   * @param oldObjectIds The local primary key for the given schema name.
-   * @return A list containing the _new_ ObjectIds for the objects.
-   */
-  def findByOldObjectIds(
-    oldSchema: String,
-    oldObjectIds: Seq[Long]
-  ): Future[MusitResult[Seq[ObjectId]]] = {
-    objDao.findObjectIdsForOld(oldSchema, oldObjectIds)
-  }
-
-  /**
    * A helper method for getting the current location of an object
    *
    * @param mid         The MuseumId to look in
@@ -61,7 +46,7 @@ class ObjectService @Inject() (
    * @return The augmented object with path, pathNames and currentLocationId
    */
   private def getCurrentLocation(mid: MuseumId, obj: MusitObject): Future[MusitObject] =
-    nodeDao.currentLocation(mid, obj.id).flatMap {
+    nodeDao.currentLocation(mid, obj.uuid).flatMap {
       case Some(nodeIdAndPath) =>
         nodeDao.namesForPath(nodeIdAndPath._2).map { pathNames =>
           obj.copy(

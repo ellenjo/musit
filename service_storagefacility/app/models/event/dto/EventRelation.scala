@@ -20,7 +20,7 @@
 package models.event.dto
 
 import models.event.{ActorRole, EventTypeId, ObjectRole, PlaceRole}
-import no.uio.musit.models.{ActorId, EventId, ObjectId, StorageNodeDatabaseId}
+import no.uio.musit.models._
 
 /**
  * isNormalizedDirection is whether this direction is the same which the links
@@ -93,7 +93,7 @@ object EventRoleActor {
 case class EventRoleObject(
   eventId: Option[EventId],
   roleId: Int,
-  objectId: ObjectId,
+  objectUuid: ObjectUUID,
   eventTypeId: EventTypeId
 )
 
@@ -104,10 +104,10 @@ object EventRoleObject {
     eventTypeId: EventTypeId,
     eventId: Option[Long] = None
   ): EventRoleObject =
-    EventRoleObject(eventId, objRole.roleId, objRole.objectId, eventTypeId)
+    EventRoleObject(eventId, objRole.roleId, objRole.objectUuid, eventTypeId)
 
   def toObjectRole(eventRoleObject: EventRoleObject): ObjectRole =
-    ObjectRole(eventRoleObject.roleId, eventRoleObject.objectId)
+    ObjectRole(eventRoleObject.roleId, eventRoleObject.objectUuid)
 }
 
 case class EventRolePlace(

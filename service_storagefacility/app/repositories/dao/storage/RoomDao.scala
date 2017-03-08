@@ -22,7 +22,7 @@ package repositories.dao.storage
 import com.google.inject.{Inject, Singleton}
 import models.storage.Room
 import models.storage.dto.{ExtendedStorageNode, RoomDto, StorageNodeDto}
-import no.uio.musit.models.{MuseumId, NodePath, StorageNodeDatabaseId}
+import no.uio.musit.models.{MuseumId, NodePath, StorageNodeDatabaseId, StorageNodeId}
 import no.uio.musit.MusitResults.{MusitDbError, MusitResult, MusitSuccess}
 import play.api.Logger
 import play.api.db.slick.DatabaseConfigProvider
@@ -51,13 +51,15 @@ class RoomDao @Inject() (
   /**
    * TODO: Document me!!!
    */
-  def getById(mid: MuseumId, id: StorageNodeDatabaseId): Future[Option[Room]] = {
+  def getById(mid: MuseumId, id: StorageNodeId): Future[Option[Room]] = {
     val action = for {
-      maybeUnitDto <- getUnitByIdAction(mid, id)
-      maybeRoomDto <- roomTable.filter(_.id === id).result.headOption
+      mud <- getUnitByUuidAction(mid, id)
+      mrd <- mud.map { u =>
+        roomTable.filter(_.id === u.id).result.headOption
+      }.getOrElse(DBIO.successful(None))
     } yield {
-      maybeUnitDto.flatMap(u =>
-        maybeRoomDto.map(r => ExtendedStorageNode(u, r)))
+      mud.flatMap(u =>
+        mrd.map(r => ExtendedStorageNode(u, r)))
     }
     db.run(action).map(_.map { unitRoomTuple =>
       StorageNodeDto.toRoom(unitRoomTuple)
@@ -69,29 +71,35 @@ class RoomDao @Inject() (
    */
   def update(
     mid: MuseumId,
-    id: StorageNodeDatabaseId,
+    id: StorageNodeId,
     room: Room
   ): Future[MusitResult[Option[Int]]] = {
-    val roomDto = StorageNodeDto.fromRoom(mid, room, Some(id))
-    val action = for {
-      unitsUpdated <- updateNodeAction(mid, id, roomDto.storageUnitDto)
-      roomsUpdated <- if (unitsUpdated > 0) updateAction(id, roomDto.extension) else DBIO.successful[Int](0) // scalastyle:ignore
-    } yield roomsUpdated
+    val dbid = room.id.getOrElse(StorageNodeDatabaseId(0)) //Todo hack
+    dbid match {
+      case res: StorageNodeDatabaseId if res == 0 => Future(MusitDbError("No RoomId"))
+      case _ => {
+        val roomDto = StorageNodeDto.fromRoom(mid, room, Some(dbid))
+        val action = for {
+          unitsUpdated <- updateNodeAction(mid, dbid, roomDto.storageUnitDto)
+          roomsUpdated <- if (unitsUpdated > 0) updateAction(dbid, roomDto.extension) else DBIO.successful[Int](0) // scalastyle:ignore
+        } yield roomsUpdated
 
-    db.run(action.transactionally).map {
-      case res: Int if res == 1 => MusitSuccess(Some(res))
-      case res: Int if res == 0 => MusitSuccess(None)
-      case res: Int =>
-        val msg = wrongNumUpdatedRows(id, res)
-        logger.warn(msg)
-        MusitDbError(msg)
+        db.run(action.transactionally).map {
+          case res: Int if res == 1 => MusitSuccess(Some(res))
+          case res: Int if res == 0 => MusitSuccess(None)
+          case res: Int =>
+            val msg = wrongNumUpdatedRows(id, res)
+            logger.warn(msg)
+            MusitDbError(msg)
+        }
+      }
     }
   }
 
   /**
    * Set the path for the given StoragNodeId
    *
-   * @param id   the StorageNodeId to update
+   * @param id   the StorageNodeDatabaseId to update
    * @param path the NodePath to set
    * @return MusitResult[Unit]
    */

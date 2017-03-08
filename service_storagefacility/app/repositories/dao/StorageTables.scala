@@ -33,7 +33,7 @@ private[dao] trait StorageTables extends BaseDao with ColumnTypeMappers {
 
   import driver.api._
 
-  protected def wrongNumUpdatedRows(id: StorageNodeDatabaseId, numRowsUpdated: Int) =
+  protected def wrongNumUpdatedRows[A](id: A, numRowsUpdated: Int) =
     s"Wrong amount of rows ($numRowsUpdated) updated for node $id"
 
   protected val rootNodeType: StorageType = StorageType.RootType
@@ -52,6 +52,19 @@ private[dao] trait StorageTables extends BaseDao with ColumnTypeMappers {
    *
    * Only returns non-root nodes
    */
+
+  protected[dao] def getUnitByUuidAction(
+    mid: MuseumId,
+    id: StorageNodeId
+  ): DBIO[Option[StorageUnitDto]] = {
+    storageNodeTable.filter { sn =>
+      sn.museumId === mid &&
+        sn.uuid === id &&
+        sn.isDeleted === false &&
+        sn.storageType =!= rootNodeType
+    }.result.headOption
+  }
+
   protected[dao] def getUnitByIdAction(
     mid: MuseumId,
     id: StorageNodeDatabaseId
@@ -92,11 +105,11 @@ private[dao] trait StorageTables extends BaseDao with ColumnTypeMappers {
   }
 
   protected[dao] def updatePartOfAction(
-    id: StorageNodeDatabaseId,
+    id: StorageNodeId,
     partOf: Option[StorageNodeDatabaseId]
   ): DBIO[Int] = {
     val filter = storageNodeTable.filter(n =>
-      n.id === id && n.isDeleted === false)
+      n.uuid === id && n.isDeleted === false)
     val q = for { n <- filter } yield n.isPartOf
     q.update(partOf)
   }
@@ -152,6 +165,22 @@ private[dao] trait StorageTables extends BaseDao with ColumnTypeMappers {
     storageNodeTable.filter { sn =>
       sn.isPartOf === id && sn.isDeleted === false
     }.length.result
+  }
+
+  /**
+   * TODO: Document me!!!
+   */
+  protected[dao] def updateNodeUuidAction(
+    mid: MuseumId,
+    id: StorageNodeId,
+    storageUnit: StorageUnitDto
+  ): DBIO[Int] = {
+    storageNodeTable.filter { sn =>
+      sn.museumId === mid &&
+        sn.uuid === id &&
+        sn.isDeleted === false &&
+        sn.storageType === storageUnit.storageType
+    }.update(storageUnit)
   }
 
   /**

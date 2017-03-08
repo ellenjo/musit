@@ -31,6 +31,16 @@ trait MusitUUID {
 
 }
 
+object MusitUUID {
+
+  implicit def asObjectId(m: MusitUUID): ObjectUUID =
+    ObjectUUID(m.underlying)
+
+  /* implicit def asStorageNodeId(m: MusitUUID): StorageNodeUUID =
+    StorageNodeUUID(m.underlying)
+*/
+}
+
 trait MusitUUIDOps[T <: MusitUUID] {
 
   implicit def fromUUID(uuid: UUID): T

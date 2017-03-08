@@ -22,7 +22,7 @@ package repositories.dao.storage
 import com.google.inject.{Inject, Singleton}
 import models.storage.Organisation
 import models.storage.dto.{ExtendedStorageNode, OrganisationDto, StorageNodeDto}
-import no.uio.musit.models.{MuseumId, NodePath, StorageNodeDatabaseId}
+import no.uio.musit.models.{MuseumId, NodePath, StorageNodeDatabaseId, StorageNodeId}
 import no.uio.musit.MusitResults.{MusitDbError, MusitResult, MusitSuccess}
 import play.api.Logger
 import play.api.db.slick.DatabaseConfigProvider
@@ -56,10 +56,12 @@ class OrganisationDao @Inject() (
   /**
    * TODO: Document me!!!
    */
-  def getById(mid: MuseumId, id: StorageNodeDatabaseId): Future[Option[Organisation]] = {
+  def getById(mid: MuseumId, id: StorageNodeId): Future[Option[Organisation]] = {
     val action = for {
-      maybeUnitDto <- getUnitByIdAction(mid, id)
-      maybeOrgDto <- organisationTable.filter(_.id === id).result.headOption
+      maybeUnitDto <- getUnitByUuidAction(mid, id)
+      maybeOrgDto <- maybeUnitDto.map { u =>
+        organisationTable.filter(_.id === u.id).result.headOption
+      }.getOrElse(DBIO.successful(None))
     } yield {
       // Map the results into an ExtendedStorageNode type
       maybeUnitDto.flatMap(u =>
@@ -76,29 +78,35 @@ class OrganisationDao @Inject() (
    */
   def update(
     mid: MuseumId,
-    id: StorageNodeDatabaseId,
+    id: StorageNodeId,
     organisation: Organisation
   ): Future[MusitResult[Option[Int]]] = {
-    val extendedOrgDto = StorageNodeDto.fromOrganisation(mid, organisation, Some(id))
-    val action = for {
-      unitsUpdated <- updateNodeAction(mid, id, extendedOrgDto.storageUnitDto)
-      orgsUpdated <- if (unitsUpdated > 0) updateAction(id, extendedOrgDto.extension) else DBIO.successful[Int](0) // scalastyle:ignore
-    } yield orgsUpdated
+    val dbid = organisation.id.getOrElse(StorageNodeDatabaseId(0)) //Todo hack
+    dbid match {
+      case res: StorageNodeDatabaseId if res == 0 => Future(MusitDbError("No BuildingId"))
+      case _ => {
+        val extendedOrgDto = StorageNodeDto.fromOrganisation(mid, organisation, Some(dbid))
+        val action = for {
+          unitsUpdated <- updateNodeAction(mid, dbid, extendedOrgDto.storageUnitDto)
+          orgsUpdated <- if (unitsUpdated > 0) updateAction(dbid, extendedOrgDto.extension) else DBIO.successful[Int](0) // scalastyle:ignore
+        } yield orgsUpdated
 
-    db.run(action.transactionally).map {
-      case res: Int if res == 1 => MusitSuccess(Some(res))
-      case res: Int if res == 0 => MusitSuccess(None)
-      case res: Int =>
-        val msg = wrongNumUpdatedRows(id, res)
-        logger.warn(msg)
-        MusitDbError(msg)
+        db.run(action.transactionally).map {
+          case res: Int if res == 1 => MusitSuccess(Some(res))
+          case res: Int if res == 0 => MusitSuccess(None)
+          case res: Int =>
+            val msg = wrongNumUpdatedRows(id, res)
+            logger.warn(msg)
+            MusitDbError(msg)
+        }
+      }
     }
   }
 
   /**
-   * Updates the path for the given StoragNodeId
+   * Updates the path for the given StorageNodeDatabaseId
    *
-   * @param id   the StorageNodeId to update
+   * @param id   the StorageNodeDatabaseId to update
    * @param path the NodePath to set
    * @return MusitResult[Unit]
    */

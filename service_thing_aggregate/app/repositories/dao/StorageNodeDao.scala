@@ -72,10 +72,10 @@ class StorageNodeDao @Inject() (
 
   def currentLocation(
     mid: MuseumId,
-    objectId: ObjectId
+    objectId: ObjectUUID
   ): Future[Option[(StorageNodeDatabaseId, NodePath)]] = {
     val findLocalObjectAction = locObjTable.filter { lo =>
-      lo.museumId === mid && lo.objectId === objectId
+      lo.museumId === mid && lo.objectUuid === objectId
     }.map(_.currentLocationId).result.headOption
 
     val findPathAction = (maybeId: Option[StorageNodeDatabaseId]) =>

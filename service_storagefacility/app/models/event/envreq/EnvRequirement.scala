@@ -23,7 +23,7 @@ import models.Interval
 import models.event.EventTypeRegistry.TopLevelEvents.EnvRequirementEventType
 import models.event.{EventType, MusitEvent}
 import models.storage.EnvironmentRequirement
-import no.uio.musit.models.{ActorId, EventId, StorageNodeDatabaseId}
+import no.uio.musit.models.{ActorId, EventId, StorageNodeDatabaseId, StorageNodeId}
 import org.joda.time.DateTime
 
 case class EnvRequirement(
@@ -31,7 +31,7 @@ case class EnvRequirement(
     doneBy: Option[ActorId],
     doneDate: DateTime,
     note: Option[String],
-    affectedThing: Option[StorageNodeDatabaseId],
+    affectedThing: Option[StorageNodeId],
     registeredBy: Option[ActorId],
     registeredDate: Option[DateTime],
     eventType: EventType,
@@ -68,7 +68,7 @@ object EnvRequirement {
    */
   def toEnvRequirementEvent(
     doneBy: ActorId,
-    affectedNodeId: StorageNodeDatabaseId,
+    affectedNodeId: StorageNodeId,
     now: DateTime,
     er: EnvironmentRequirement
   ): EnvRequirement = {

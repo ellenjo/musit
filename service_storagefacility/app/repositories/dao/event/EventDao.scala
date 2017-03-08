@@ -27,7 +27,7 @@ import models.event.dto.DtoConverters.MoveConverters
 import models.event.dto._
 import models.event.move.MoveObject
 import models.event.{EventTypeId, EventTypeRegistry}
-import no.uio.musit.models.{EventId, MuseumId, ObjectId, StorageNodeDatabaseId}
+import no.uio.musit.models._
 import no.uio.musit.MusitResults._
 import play.api.Logger
 import play.api.db.slick.DatabaseConfigProvider
@@ -120,12 +120,14 @@ class EventDao @Inject() (
     }
   }
 
-  private[this] def insertRelatedType[A: ClassTag](
+  private[this] def insertRelatedType[A: ClassTag, ID](
     eventId: EventId,
     relType: Seq[A]
-  )(insert: (EventId, Seq[A]) => DBIO[Option[Int]]): DBIO[Option[Int]] = {
+  )(
+    insert: (EventId, Seq[A]) => DBIO[Option[ID]]
+  ): DBIO[Option[ID]] = {
     if (relType.nonEmpty) insert(eventId, relType)
-    else DBIO.successful[Option[Int]](None)
+    else DBIO.successful[Option[ID]](None)
   }
 
   private[this] def insertRelatedActors(
@@ -150,6 +152,7 @@ class EventDao @Inject() (
     mid: MuseumId,
     eventId: EventId,
     objPlaces: Seq[EventRoleObject]
+  //objPlaces: Seq[EventRolePlace]
   ): DBIO[Option[Int]] =
     insertRelatedType(eventId, objPlaces)(placesAsObjDao.insertObjects)
 
@@ -425,7 +428,7 @@ class EventDao @Inject() (
    */
   def latestByNodeId(
     mid: MuseumId,
-    id: StorageNodeDatabaseId,
+    id: StorageNodeId,
     eventTypeId: EventTypeId
   ): Future[MusitResult[Option[EventDto]]] = {
     for {
@@ -568,7 +571,7 @@ class EventDao @Inject() (
    */
   private def eventsForNode[EType <: TopLevelEvent, Res](
     mid: MuseumId,
-    nodeId: StorageNodeDatabaseId,
+    nodeId: StorageNodeId,
     eventType: EType,
     limit: Option[Int] = None
   )(success: EventDto => Res): Future[Seq[Res]] = {
@@ -604,7 +607,7 @@ class EventDao @Inject() (
    */
   def getEventsForNode[A <: TopLevelEvent](
     mid: MuseumId,
-    id: StorageNodeDatabaseId,
+    id: StorageNodeId,
     eventType: A
   ): Future[Seq[EventDto]] = eventsForNode(mid, id, eventType)(dto => dto)
 
@@ -621,7 +624,7 @@ class EventDao @Inject() (
    */
   private def eventsForObject[EType <: TopLevelEvent, Res](
     mid: MuseumId,
-    objectId: ObjectId,
+    objectId: ObjectUUID,
     eventType: EType,
     limit: Option[Int] = None
   )(success: EventDto => Res): Future[Seq[Res]] = {
@@ -655,7 +658,7 @@ class EventDao @Inject() (
    */
   def getObjectLocationHistory(
     mid: MuseumId,
-    objectId: ObjectId,
+    objectId: ObjectUUID,
     limit: Option[Int]
   ): Future[Seq[MoveObject]] = {
     eventsForObject(mid, objectId, MoveObjectType, limit) { dto =>

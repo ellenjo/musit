@@ -26,6 +26,7 @@ import no.uio.musit.security.Authenticator
 import no.uio.musit.security.Permissions._
 import no.uio.musit.service.MusitController
 import no.uio.musit.MusitResults.{MusitError, MusitSuccess}
+import no.uio.musit.models.StorageNodeId
 import play.api.Logger
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.libs.json._
@@ -48,17 +49,21 @@ class EventController @Inject() (
    */
   def addControl(
     mid: Int,
-    nodeId: Long
+    nodeId: String
   ) = MusitSecureAction(mid, Write).async(parse.json) { implicit request =>
     request.body.validate[Control] match {
       case JsSuccess(ctrl, jsPath) =>
-        controlService.add(mid, nodeId, ctrl)(request.user).map {
-          case MusitSuccess(addedCtrl) =>
-            Created(Json.toJson(addedCtrl))
+        val validateNodeId = StorageNodeId.fromString(nodeId)
+        validateNodeId.map(validNid =>
+          controlService.add(mid, validNid, ctrl)(request.user).map {
+            case MusitSuccess(addedCtrl) =>
+              Created(Json.toJson(addedCtrl))
 
-          case err: MusitError =>
-            InternalServerError(Json.obj("message" -> err.message))
-        }
+            case err: MusitError =>
+              InternalServerError(Json.obj("message" -> err.message))
+          }).getOrElse(Future.successful(
+          BadRequest(Json.obj("message" -> "Unable to parse NodeId"))
+        ))
       case JsError(errors) =>
         Future.successful(BadRequest(JsError.toJson(errors)))
     }
@@ -70,17 +75,21 @@ class EventController @Inject() (
    */
   def addObservation(
     mid: Int,
-    nodeId: Long
+    nodeId: String
   ) = MusitSecureAction(mid, Write).async(parse.json) { implicit request =>
     request.body.validate[Observation] match {
       case JsSuccess(obs, jsPath) =>
-        observationService.add(mid, nodeId, obs)(request.user).map {
-          case MusitSuccess(addedObs) =>
-            Created(Json.toJson(addedObs))
+        val validateNodeId = StorageNodeId.fromString(nodeId)
+        validateNodeId.map(validNid =>
+          observationService.add(mid, validNid, obs)(request.user).map {
+            case MusitSuccess(addedObs) =>
+              Created(Json.toJson(addedObs))
 
-          case err: MusitError =>
-            InternalServerError(Json.obj("message" -> err.message))
-        }
+            case err: MusitError =>
+              InternalServerError(Json.obj("message" -> err.message))
+          }).getOrElse(Future.successful(
+          BadRequest(Json.obj("message" -> "Unable to parse NodeId"))
+        ))
       case JsError(errors) =>
         Future.successful(BadRequest(JsError.toJson(errors)))
     }
@@ -134,15 +143,19 @@ class EventController @Inject() (
    */
   def listControls(
     mid: Int,
-    nodeId: Long
+    nodeId: String
   ) = MusitSecureAction(mid, Read).async { implicit request =>
-    controlService.listFor(mid, nodeId).map {
-      case MusitSuccess(controls) =>
-        Ok(Json.toJson(controls))
+    val validateNodeId = StorageNodeId.fromString(nodeId)
+    validateNodeId.map(validNid =>
+      controlService.listFor(mid, validNid).map {
+        case MusitSuccess(controls) =>
+          Ok(Json.toJson(controls))
 
-      case err: MusitError =>
-        InternalServerError(Json.obj("message" -> err.message))
-    }
+        case err: MusitError =>
+          InternalServerError(Json.obj("message" -> err.message))
+      }).getOrElse(Future.successful(
+      BadRequest(Json.obj("message" -> "Unable to parse NodeId"))
+    ))
   }
 
   /**
@@ -150,15 +163,19 @@ class EventController @Inject() (
    */
   def listObservations(
     mid: Int,
-    nodeId: Long
+    nodeId: String
   ) = MusitSecureAction(mid, Read).async { implicit request =>
-    observationService.listFor(mid, nodeId).map {
-      case MusitSuccess(observations) =>
-        Ok(Json.toJson(observations))
+    val validateNodeId = StorageNodeId.fromString(nodeId)
+    validateNodeId.map(validNid =>
+      observationService.listFor(mid, validNid).map {
+        case MusitSuccess(observations) =>
+          Ok(Json.toJson(observations))
 
-      case err: MusitError =>
-        InternalServerError(Json.obj("message" -> err.message))
-    }
+        case err: MusitError =>
+          InternalServerError(Json.obj("message" -> err.message))
+      }).getOrElse(Future.successful(
+      BadRequest(Json.obj("message" -> "Unable to parse NodeId"))
+    ))
   }
 
   /**
@@ -167,37 +184,41 @@ class EventController @Inject() (
    */
   def listEventsForNode(
     mid: Int,
-    nodeId: Long
+    nodeId: String
   ) = MusitSecureAction(mid, Read).async { implicit request =>
-    val eventuallyCtrls = controlService.listFor(mid, nodeId)
-    val eventyallyObs = observationService.listFor(mid, nodeId)
-    for {
-      ctrlRes <- eventuallyCtrls
-      obsRes <- eventyallyObs
-    } yield {
-      val sortedRes = for {
-        controls <- ctrlRes
-        observations <- obsRes
+    val validateNodeId = StorageNodeId.fromString(nodeId)
+    validateNodeId.map(validNid => {
+      val eventuallyCtrls = controlService.listFor(mid, validNid)
+      val eventyallyObs = observationService.listFor(mid, validNid)
+      for {
+        ctrlRes <- eventuallyCtrls
+        obsRes <- eventyallyObs
       } yield {
-        controls.union(observations).sortBy(_.doneDate.getMillis)
+        val sortedRes = for {
+          controls <- ctrlRes
+          observations <- obsRes
+        } yield {
+          controls.union(observations).sortBy(_.doneDate.getMillis)
+        }
+
+        sortedRes match {
+          case MusitSuccess(sorted) =>
+            val jsObjects = sorted.map {
+              case ctrl: Control => Json.toJson(ctrl)
+              case obs: Observation => Json.toJson(obs)
+              case _ => JsNull
+            }
+            logger.debug(s"Going to return sorted JSON:" +
+              s"\n${Json.prettyPrint(JsArray(jsObjects))}")
+            Ok(JsArray(jsObjects))
+
+          case err: MusitError =>
+            InternalServerError(Json.obj("message" -> err.message))
+        }
       }
-
-      sortedRes match {
-        case MusitSuccess(sorted) =>
-          val jsObjects = sorted.map {
-            case ctrl: Control => Json.toJson(ctrl)
-            case obs: Observation => Json.toJson(obs)
-            case _ => JsNull
-          }
-          logger.debug(s"Going to return sorted JSON:" +
-            s"\n${Json.prettyPrint(JsArray(jsObjects))}")
-          Ok(JsArray(jsObjects))
-
-        case err: MusitError =>
-          InternalServerError(Json.obj("message" -> err.message))
-      }
-
-    }
+    }).getOrElse(Future.successful(
+      BadRequest(Json.obj("message" -> "Unable to parse NodeId"))
+    ))
   }
 
 }

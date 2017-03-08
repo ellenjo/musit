@@ -25,7 +25,7 @@ import models.event.dto.DtoConverters.EnvReqConverters
 import models.event.dto.{EventDto, ExtendedDto}
 import models.event.envreq.EnvRequirement
 import models.storage.EnvironmentRequirement
-import no.uio.musit.models.{EventId, MuseumId, StorageNodeDatabaseId}
+import no.uio.musit.models.{EventId, MuseumId, StorageNodeDatabaseId, StorageNodeId}
 import no.uio.musit.security.AuthenticatedUser
 import no.uio.musit.MusitResults.{MusitInternalError, MusitResult, MusitSuccess}
 import play.api.Logger
@@ -134,7 +134,7 @@ class EnvironmentRequirementService @Inject() (
    */
   private def latestForNodeId(
     mid: MuseumId,
-    nodeId: StorageNodeDatabaseId
+    nodeId: StorageNodeId
   ): Future[MusitResult[Option[EnvRequirement]]] = {
     eventDao.latestByNodeId(mid, nodeId, EnvRequirementEventType.id).map { result =>
       convertResult(result)
@@ -150,7 +150,7 @@ class EnvironmentRequirementService @Inject() (
    */
   def findLatestForNodeId(
     mid: MuseumId,
-    nodeId: StorageNodeDatabaseId
+    nodeId: StorageNodeId
   ): Future[MusitResult[Option[EnvironmentRequirement]]] = {
     eventDao.latestByNodeId(mid, nodeId, EnvRequirementEventType.id).map { result =>
       convertResult(result).map { maybeEvt =>

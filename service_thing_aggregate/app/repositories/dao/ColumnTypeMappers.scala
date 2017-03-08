@@ -46,6 +46,12 @@ trait ColumnTypeMappers {
       longId => ObjectId(longId)
     )
 
+  implicit val objectUUIDMapper: BaseColumnType[ObjectUUID] =
+    MappedColumnType.base[ObjectUUID, String](
+      sid => sid.asString,
+      strId => ObjectUUID.unsafeFromString(strId)
+    )
+
   implicit lazy val eventIdMapper: BaseColumnType[EventId] =
     MappedColumnType.base[EventId, Long](
       eid => eid.underlying,

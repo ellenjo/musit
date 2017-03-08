@@ -354,7 +354,8 @@ class ObjectDao @Inject() (
 
     val query =
       sql"""
-        SELECT /*+ FIRST_ROWS DRIVING_SITE(mt) */ mt."OBJECT_ID",
+        SELECT /*+ FIRST_ROWS DRIVING_SITE(mt) */
+        mt."MUSITTHING_UUID",
           mt."MUSEUMID",
           mt."MUSEUMNO",
           mt."MUSEUMNOASNUMBER",
@@ -370,7 +371,7 @@ class ObjectDao @Inject() (
         WHERE lo."MUSEUM_ID" = ${mid.underlying}
         AND mt."MUSEUMID" = ${mid.underlying}
         AND lo."CURRENT_LOCATION_ID" = ${nodeId.underlying}
-        AND mt."OBJECT_ID" = lo."OBJECT_ID"
+        AND mt."MUSITTHING_UUID" = lo."OBJECT_UUID"
         AND mt."IS_DELETED" = 0 #${collectionFilter(collections)}
         ORDER BY
           mt."MUSEUMNOASNUMBER" ASC,
@@ -378,11 +379,11 @@ class ObjectDao @Inject() (
           mt."SUBNOASNUMBER" ASC,
           LOWER(mt."SUBNO") ASC
         #${pagingClause(page, limit)}
-      """.as[(Option[Long], Int, String, Option[Long], Option[String], Option[Long], Option[Long], Boolean, String, Option[String], Option[Long], Option[Int])] // scalastyle:ignore
+      """.as[(String, Int, String, Option[Long], Option[String], Option[Long], Option[Long], Boolean, String, Option[String], Option[Long], Option[Int])] // scalastyle:ignore
 
     db.run(query).map { r =>
       val res = r.map { t =>
-        (t._1.map(ObjectId.apply), MuseumId.fromInt(t._2), t._3, t._4, t._5,
+        (ObjectUUID.unsafeFromString(t._1), MuseumId.fromInt(t._2), t._3, t._4, t._5,
           t._6, t._7, t._8, t._9, t._10, t._11, t._12)
       }
       MusitSuccess(res)
@@ -418,32 +419,6 @@ class ObjectDao @Inject() (
         logger.error(msg, ex)
         MusitDbError(msg, Option(ex))
     }
-
-  /**
-   * Find the ObjectIds for objects located in the given old schema with the
-   * provided old IDs.
-   *
-   * @param oldSchema
-   * @param oldIds
-   * @return
-   */
-  def findObjectIdsForOld(
-    oldSchema: String,
-    oldIds: Seq[Long]
-  ): Future[MusitResult[Seq[ObjectId]]] = {
-    val query = objTable.filter { o =>
-      o.isDeleted === false &&
-        o.oldSchema === oldSchema &&
-        (o.oldObjId inSet oldIds)
-    }.sortBy(_.id).map(_.id)
-
-    db.run(query.result).map(MusitSuccess.apply).recover {
-      case NonFatal(ex) =>
-        val msg = s"Error locating objectIds for old IDs ${oldIds.mkString(", ")}"
-        logger.error(msg, ex)
-        MusitDbError(msg, Option(ex))
-    }
-  }
 
   /**
    * Find the object with the given old object ID kept in the given old schema.

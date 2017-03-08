@@ -25,7 +25,7 @@ import models.event.control.Control
 import models.event.dto.BaseEventDto
 import models.event.dto.DtoConverters.CtrlConverters
 import no.uio.musit.MusitResults._
-import no.uio.musit.models.{EventId, MuseumId, StorageNodeDatabaseId}
+import no.uio.musit.models.{EventId, MuseumId, StorageNodeDatabaseId, StorageNodeId}
 import no.uio.musit.security.AuthenticatedUser
 import no.uio.musit.time.dateTimeNow
 import play.api.Logger
@@ -51,7 +51,7 @@ class ControlService @Inject() (
    */
   def add(
     mid: MuseumId,
-    nodeId: StorageNodeDatabaseId,
+    nodeId: StorageNodeId,
     ctrl: Control
   )(implicit currUsr: AuthenticatedUser): Future[MusitResult[Control]] = {
     storageNodeService.exists(mid, nodeId).flatMap {
@@ -111,7 +111,7 @@ class ControlService @Inject() (
 
   def listFor(
     mid: MuseumId,
-    nodeId: StorageNodeDatabaseId
+    nodeId: StorageNodeId
   ): Future[MusitResult[Seq[Control]]] = {
     eventDao.getEventsForNode(mid, nodeId, ControlEventType).map { dtos =>
       MusitSuccess(dtos.map { dto =>

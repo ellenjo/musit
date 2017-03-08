@@ -22,7 +22,7 @@ package models.event.control
 import models.event.control.ControlSubEvents._
 import models.event.{EventType, MusitEvent}
 import no.uio.musit.formatters.WithDateTimeFormatters
-import no.uio.musit.models.{ActorId, EventId, StorageNodeDatabaseId}
+import no.uio.musit.models.{ActorId, EventId, StorageNodeDatabaseId, StorageNodeId}
 import org.joda.time.DateTime
 import play.api.libs.json._
 
@@ -33,7 +33,7 @@ case class Control(
   id: Option[EventId],
   doneBy: Option[ActorId],
   doneDate: DateTime,
-  affectedThing: Option[StorageNodeDatabaseId],
+  affectedThing: Option[StorageNodeId],
   registeredBy: Option[ActorId],
   registeredDate: Option[DateTime],
   eventType: EventType,

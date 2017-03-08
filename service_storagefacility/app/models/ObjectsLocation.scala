@@ -20,10 +20,10 @@
 package models
 
 import models.storage.StorageNode
-import no.uio.musit.models.ObjectId
+import no.uio.musit.models.ObjectUUID
 import play.api.libs.json.{Json, Writes}
 
-case class ObjectsLocation(node: StorageNode, objectIds: Seq[ObjectId])
+case class ObjectsLocation(node: StorageNode, objectIds: Seq[ObjectUUID])
 
 object ObjectsLocation {
 

@@ -31,7 +31,7 @@ import models.event.observation._
 import models.event.observation.ObservationSubEvents._
 import models.{FromToDouble, Interval, LifeCycle}
 import models.event.control.ControlSubEvents._
-import no.uio.musit.models.{ObjectId, StorageNodeDatabaseId}
+import no.uio.musit.models.{ObjectId, ObjectUUID, StorageNodeDatabaseId, StorageNodeId}
 import EventRoleActor._
 import EventRoleObject._
 import EventRolePlace._
@@ -253,7 +253,7 @@ object DtoConverters {
         id = dto.id,
         doneDate = dto.eventDate,
         doneBy = dto.relatedActors.map(_.actorId).headOption,
-        affectedThing = dto.relatedObjects.map(e => StorageNodeDatabaseId(e.objectId)).headOption,
+        affectedThing = dto.relatedObjects.map(e => StorageNodeId(e.objectUuid.underlying)).headOption,
         registeredBy = dto.registeredBy,
         registeredDate = dto.registeredDate,
         eventType = EventType.fromEventTypeId(dto.eventTypeId),
@@ -388,7 +388,7 @@ object DtoConverters {
         id = dto.id,
         doneDate = dto.eventDate,
         doneBy = dto.relatedActors.map(_.actorId).headOption,
-        affectedThing = dto.relatedObjects.map(e => StorageNodeDatabaseId(e.objectId)).headOption,
+        affectedThing = dto.relatedObjects.map(e => StorageNodeId(e.objectUuid.underlying)).headOption,
         registeredBy = dto.registeredBy,
         registeredDate = dto.registeredDate,
         eventType = EventType.fromEventTypeId(dto.eventTypeId),
@@ -576,7 +576,7 @@ object DtoConverters {
         id = dto.id,
         doneDate = dto.eventDate,
         doneBy = dto.relatedActors.map(_.actorId).headOption,
-        affectedThing = dto.relatedObjects.map(e => StorageNodeDatabaseId(e.objectId)).headOption,
+        affectedThing = dto.relatedObjects.map(e => StorageNodeId(e.objectUuid.underlying)).headOption,
         note = dto.note,
         registeredBy = dto.registeredBy,
         registeredDate = dto.registeredDate,
@@ -622,7 +622,7 @@ object DtoConverters {
           id = dto.id,
           doneDate = dto.eventDate,
           doneBy = dto.relatedActors.map(_.actorId).headOption,
-          affectedThing = dto.relatedObjects.map(e => ObjectId(e.objectId)).headOption,
+          affectedThing = dto.relatedObjects.map(e => ObjectUUID(e.objectUuid.underlying)).headOption,
           registeredBy = dto.registeredBy,
           registeredDate = dto.registeredDate,
           eventType = eventType,
@@ -638,7 +638,7 @@ object DtoConverters {
           id = dto.id,
           doneDate = dto.eventDate,
           doneBy = dto.relatedActors.map(_.actorId).headOption,
-          affectedThing = dto.relatedObjects.map(e => StorageNodeDatabaseId(e.objectId)).headOption, // scalastyle:ignore
+          affectedThing = dto.relatedObjects.map(e => StorageNodeId(e.objectUuid.underlying)).headOption, // scalastyle:ignore
           registeredBy = dto.registeredBy,
           registeredDate = dto.registeredDate,
           eventType = eventType,

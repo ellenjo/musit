@@ -25,7 +25,7 @@ import models.event.dto.BaseEventDto
 import models.event.dto.DtoConverters.ObsConverters
 import models.event.observation.Observation
 import no.uio.musit.MusitResults._
-import no.uio.musit.models.{EventId, MuseumId, StorageNodeDatabaseId}
+import no.uio.musit.models.{EventId, MuseumId, StorageNodeDatabaseId, StorageNodeId}
 import no.uio.musit.security.AuthenticatedUser
 import no.uio.musit.time.dateTimeNow
 import play.api.Logger
@@ -46,7 +46,7 @@ class ObservationService @Inject() (
    */
   def add(
     mid: MuseumId,
-    nodeId: StorageNodeDatabaseId,
+    nodeId: StorageNodeId,
     obs: Observation
   )(implicit currUsr: AuthenticatedUser): Future[MusitResult[Observation]] = {
     storageNodeService.exists(mid, nodeId).flatMap {
@@ -108,7 +108,7 @@ class ObservationService @Inject() (
    */
   def listFor(
     mid: MuseumId,
-    nodeId: StorageNodeDatabaseId
+    nodeId: StorageNodeId
   ): Future[MusitResult[Seq[Observation]]] = {
     eventDao.getEventsForNode(mid, nodeId, ObservationEventType).map { dtos =>
       MusitSuccess(dtos.map { dto =>

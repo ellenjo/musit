@@ -23,7 +23,7 @@ import models.Move
 import no.uio.musit.time.dateTimeNow
 import models.event.EventTypeRegistry.TopLevelEvents.{MoveNodeType, MoveObjectType}
 import models.event.{EventType, MusitEvent}
-import no.uio.musit.models.{ActorId, EventId, ObjectId, StorageNodeDatabaseId}
+import no.uio.musit.models._
 import org.joda.time.DateTime
 
 sealed trait MoveEvent extends MusitEvent {
@@ -35,7 +35,7 @@ case class MoveObject(
   id: Option[EventId],
   doneBy: Option[ActorId],
   doneDate: DateTime,
-  affectedThing: Option[ObjectId],
+  affectedThing: Option[ObjectUUID],
   registeredBy: Option[ActorId],
   registeredDate: Option[DateTime],
   eventType: EventType,
@@ -45,7 +45,7 @@ case class MoveObject(
 
 object MoveObject {
 
-  def fromCommand(currUserId: ActorId, cmd: Move[ObjectId]): Seq[MoveObject] = {
+  def fromCommand(currUserId: ActorId, cmd: Move[ObjectUUID]): Seq[MoveObject] = {
     cmd.items.map { objectId =>
       val now = dateTimeNow
       MoveObject(
@@ -67,7 +67,7 @@ case class MoveNode(
   id: Option[EventId],
   doneBy: Option[ActorId],
   doneDate: DateTime,
-  affectedThing: Option[StorageNodeDatabaseId],
+  affectedThing: Option[StorageNodeId],
   registeredBy: Option[ActorId],
   registeredDate: Option[DateTime],
   eventType: EventType,
@@ -79,7 +79,7 @@ object MoveNode {
 
   def fromCommand(
     currUserId: ActorId,
-    cmd: Move[StorageNodeDatabaseId]
+    cmd: Move[StorageNodeId]
   ): Seq[MoveNode] = cmd.items.map { nodeId =>
     val now = dateTimeNow
     MoveNode(
